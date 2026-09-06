@@ -24,13 +24,20 @@
 
 <div id="paywall-overlay" class="paywall-overlay" style="display:none">
   <div class="paywall-card">
-    <h2>GURUGURU Standard(月額980円)</h2>
-    <p>対話・個性C生成・シーン生成・反応テストなど、AI呼び出しを伴う機能は有料プランでご利用いただけます。個性の作成・編集・閲覧は無料のままです。</p>
-    <button type="button" id="paywall-subscribe-btn">¥980/月で始める</button>
-    <div class="paywall-divider">すでに登録済みの方</div>
-    <div class="paywall-redeem">
-      <input type="text" id="paywall-code-input" placeholder="アクセスコード(GURUGURU-XXXX-XXXX)" />
-      <button type="button" id="paywall-redeem-btn" class="secondary">コードを入力</button>
+    <div id="paywall-plan-view">
+      <h2>GURUGURU Standard(月額980円)</h2>
+      <p>対話・個性C生成・シーン生成・反応テストなど、AI呼び出しを伴う機能は有料プランでご利用いただけます。個性の作成・編集・閲覧は無料のままです。月あたりAI呼び出し50回まで included。</p>
+      <button type="button" id="paywall-subscribe-btn">¥980/月で始める</button>
+      <div class="paywall-divider">すでに登録済みの方</div>
+      <div class="paywall-redeem">
+        <input type="text" id="paywall-code-input" placeholder="アクセスコード(GURUGURU-XXXX-XXXX)" />
+        <button type="button" id="paywall-redeem-btn" class="secondary">コードを入力</button>
+      </div>
+    </div>
+    <div id="paywall-usage-view" style="display:none">
+      <h2>今月のAI呼び出し上限(50回)に達しました</h2>
+      <p>翌月まで待つか、追加クレジット(¥500で30回分)を購入するとすぐに再開できます。</p>
+      <button type="button" id="paywall-topup-btn">¥500で30回分を追加購入</button>
     </div>
     <div id="paywall-status" class="hint"></div>
     <button type="button" id="paywall-close-btn" class="paywall-close">閉じる</button>

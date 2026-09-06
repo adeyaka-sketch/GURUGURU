@@ -35,8 +35,13 @@ async function api(path, options = {}) {
   });
   if (res.status === 402) {
     const err = await res.json().catch(() => ({}));
-    showPaywall();
+    showPaywall("plan");
     throw new Error(err.error || "この機能は有料プランが必要です。");
+  }
+  if (res.status === 429) {
+    const err = await res.json().catch(() => ({}));
+    showPaywall("usage");
+    throw new Error(err.error || "今月の利用上限に達しました。");
   }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
@@ -714,7 +719,10 @@ async function loadSceneHistory(personalityAId, personalityBId) {
 }
 
 // ---------- 課金(ペイウォール) ----------
-function showPaywall() {
+function showPaywall(mode = "plan") {
+  document.getElementById("paywall-plan-view").style.display = mode === "plan" ? "block" : "none";
+  document.getElementById("paywall-usage-view").style.display = mode === "usage" ? "block" : "none";
+  document.getElementById("paywall-status").textContent = "";
   document.getElementById("paywall-overlay").style.display = "flex";
 }
 
@@ -732,8 +740,8 @@ async function refreshBillingBadge() {
       return;
     }
     badge.style.display = "inline-block";
-    if (status.paid) {
-      badge.textContent = "有料プラン利用中";
+    if (status.paid && status.usage) {
+      badge.textContent = `有料プラン利用中(今月 ${status.usage.usageCount}/${status.usage.monthlyLimit}${status.usage.bonusCredits ? ` +追加${status.usage.bonusCredits}` : ""})`;
       badge.classList.add("paid");
     } else {
       badge.textContent = `未加入(¥${status.priceJpy}/月)`;
@@ -751,6 +759,17 @@ document.getElementById("paywall-subscribe-btn").addEventListener("click", async
   statusEl.textContent = "決済ページを準備しています...";
   try {
     const { url } = await api("/billing/checkout", { method: "POST", body: JSON.stringify({}) });
+    window.location.href = url;
+  } catch (err) {
+    statusEl.textContent = err.message;
+  }
+});
+
+document.getElementById("paywall-topup-btn").addEventListener("click", async () => {
+  const statusEl = document.getElementById("paywall-status");
+  statusEl.textContent = "決済ページを準備しています...";
+  try {
+    const { url } = await api("/billing/topup-checkout", { method: "POST", body: JSON.stringify({}) });
     window.location.href = url;
   } catch (err) {
     statusEl.textContent = err.message;

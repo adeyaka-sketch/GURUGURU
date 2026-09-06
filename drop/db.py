@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS personalities (
   deflection TEXT DEFAULT '',
   sensory_anchor TEXT DEFAULT '',
   created_by TEXT DEFAULT '',
+  is_sample INTEGER DEFAULT 0,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))
 );
@@ -128,6 +129,10 @@ CREATE TABLE IF NOT EXISTS access_codes (
   stripe_customer_id TEXT DEFAULT '',
   stripe_subscription_id TEXT DEFAULT '',
   status TEXT DEFAULT 'active',
+  monthly_limit INTEGER DEFAULT 50,
+  usage_count INTEGER DEFAULT 0,
+  usage_period TEXT DEFAULT '',
+  bonus_credits INTEGER DEFAULT 0,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))
 );
@@ -168,10 +173,22 @@ def _migrate():
         "deflection": "TEXT DEFAULT ''",
         "sensory_anchor": "TEXT DEFAULT ''",
         "created_by": "TEXT DEFAULT ''",
+        "is_sample": "INTEGER DEFAULT 0",
     }
     for col, decl in personality_new_cols.items():
         if col not in personality_cols:
             _conn.execute(f"ALTER TABLE personalities ADD COLUMN {col} {decl}")
+
+    access_code_cols = {row["name"] for row in _conn.execute("PRAGMA table_info(access_codes)")}
+    access_code_new_cols = {
+        "monthly_limit": "INTEGER DEFAULT 50",
+        "usage_count": "INTEGER DEFAULT 0",
+        "usage_period": "TEXT DEFAULT ''",
+        "bonus_credits": "INTEGER DEFAULT 0",
+    }
+    for col, decl in access_code_new_cols.items():
+        if col not in access_code_cols:
+            _conn.execute(f"ALTER TABLE access_codes ADD COLUMN {col} {decl}")
 
     _conn.commit()
 

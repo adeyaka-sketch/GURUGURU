@@ -67,8 +67,8 @@ def create_personality():
 
     cur = execute(
         """INSERT INTO personalities
-           (name, console, belief, emotion, bias, voice_rhythm, deflection, sensory_anchor, created_by)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+           (name, console, belief, emotion, bias, voice_rhythm, deflection, sensory_anchor, created_by, is_sample)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             name,
             body.get("console") or "",
@@ -79,6 +79,7 @@ def create_personality():
             body.get("deflection") or "",
             body.get("sensoryAnchor") or "",
             current_creator_id() or "",
+            1 if body.get("isSample") else 0,
         ),
     )
     personality_id = cur.lastrowid
@@ -120,9 +121,11 @@ def update_personality(personality_id):
 
 @bp.delete("/<int:personality_id>")
 def delete_personality(personality_id):
-    existing = query_one("SELECT created_by FROM personalities WHERE id = ?", (personality_id,))
+    existing = query_one("SELECT created_by, is_sample FROM personalities WHERE id = ?", (personality_id,))
     if not existing:
         return jsonify({"error": "not found"}), 404
+    if existing["is_sample"]:
+        return jsonify({"error": "これは見本の個性のため削除できません。"}), 403
     # created_by が設定されている(=課金導入後に作られた)個性は、作成者本人だけが削除できる。
     # 課金導入前からある個性(created_byが空)は、これまで通り誰でも削除できる。
     if existing["created_by"] and existing["created_by"] != (current_creator_id() or ""):

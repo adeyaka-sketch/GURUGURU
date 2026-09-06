@@ -2,6 +2,7 @@ import functools
 import os
 import secrets
 import string
+from datetime import datetime
 
 from flask import jsonify, session
 
@@ -9,6 +10,10 @@ from .db import execute, query_one
 
 PRICE_JPY = 980
 PLAN_NAME = "GURUGURU Standard"
+
+DEFAULT_MONTHLY_LIMIT = 50
+TOPUP_JPY = 500
+TOPUP_CREDITS = 30
 
 
 def stripe_enabled():
@@ -24,6 +29,10 @@ def get_stripe():
 
 def get_price_id():
     return os.environ.get("STRIPE_PRICE_ID")
+
+
+def get_topup_price_id():
+    return os.environ.get("STRIPE_TOPUP_PRICE_ID")
 
 
 def get_webhook_secret():
@@ -74,15 +83,83 @@ def is_paid_session():
     return bool(row and row["status"] == "active")
 
 
+def _current_period():
+    return datetime.now().strftime("%Y-%m")
+
+
+def _ensure_period(row):
+    """月が変わっていたら利用回数をリセットする。返り値は最新のusage_count。"""
+    period = _current_period()
+    if row["usage_period"] != period:
+        execute(
+            "UPDATE access_codes SET usage_count = 0, usage_period = ? WHERE code = ?",
+            (period, row["code"]),
+        )
+        return 0
+    return row["usage_count"]
+
+
+def get_usage_status(code):
+    """残り利用回数などを返す(UI表示用、消費はしない)。"""
+    row = get_access_code(code)
+    if not row:
+        return None
+    usage_count = _ensure_period(row)
+    remaining_base = max(0, row["monthly_limit"] - usage_count)
+    return {
+        "monthlyLimit": row["monthly_limit"],
+        "usageCount": usage_count,
+        "remainingBase": remaining_base,
+        "bonusCredits": row["bonus_credits"],
+        "remainingTotal": remaining_base + row["bonus_credits"],
+    }
+
+
+def consume_usage(code):
+    """
+    1回分のAI呼び出しを消費する。月内上限→ボーナスクレジットの順で消費し、
+    どちらも尽きていればFalseを返す(呼び出し元は403/429で弾く)。
+    """
+    row = get_access_code(code)
+    if not row:
+        return False
+    usage_count = _ensure_period(row)
+
+    if usage_count < row["monthly_limit"]:
+        execute(
+            "UPDATE access_codes SET usage_count = usage_count + 1 WHERE code = ?",
+            (code,),
+        )
+        return True
+
+    if row["bonus_credits"] > 0:
+        execute(
+            "UPDATE access_codes SET bonus_credits = bonus_credits - 1 WHERE code = ?",
+            (code,),
+        )
+        return True
+
+    return False
+
+
+def add_bonus_credits(code, amount):
+    execute(
+        "UPDATE access_codes SET bonus_credits = bonus_credits + ? WHERE code = ?",
+        (amount, code),
+    )
+
+
 def require_paid_access(view_func):
-    """このAPIはClaude呼び出しなど実費が発生するため、有料アクセスコードが必要。"""
+    """このAPIはClaude呼び出しなど実費が発生するため、有料アクセスコード+利用枠が必要。"""
 
     @functools.wraps(view_func)
     def wrapper(*args, **kwargs):
         if not stripe_enabled():
             # Stripe未設定の間(開発中)は素通しする
             return view_func(*args, **kwargs)
-        if not is_paid_session():
+
+        code = session.get("access_code")
+        if not code or not is_paid_session():
             return (
                 jsonify(
                     {
@@ -92,6 +169,19 @@ def require_paid_access(view_func):
                 ),
                 402,
             )
+
+        if not consume_usage(code):
+            return (
+                jsonify(
+                    {
+                        "error": f"今月のAI呼び出し上限({DEFAULT_MONTHLY_LIMIT}回)に達しました。"
+                        f"追加クレジット(¥{TOPUP_JPY}で{TOPUP_CREDITS}回分)を購入するか、翌月まで待ってください。",
+                        "usageExceeded": True,
+                    }
+                ),
+                429,
+            )
+
         return view_func(*args, **kwargs)
 
     return wrapper

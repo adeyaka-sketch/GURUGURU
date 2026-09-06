@@ -3,12 +3,18 @@ import os
 from flask import Blueprint, jsonify, redirect, request, session
 
 from ..billing import (
+    DEFAULT_MONTHLY_LIMIT,
     PRICE_JPY,
+    TOPUP_CREDITS,
+    TOPUP_JPY,
+    add_bonus_credits,
     create_access_code,
     get_access_code,
     get_access_code_by_subscription,
     get_price_id,
     get_stripe,
+    get_topup_price_id,
+    get_usage_status,
     get_webhook_secret,
     is_paid_session,
     set_access_code_status,
@@ -20,7 +26,19 @@ bp = Blueprint("billing", __name__)
 
 @bp.get("/api/billing/status")
 def status():
-    return jsonify({"enabled": stripe_enabled(), "paid": is_paid_session(), "priceJpy": PRICE_JPY})
+    code = session.get("access_code")
+    usage = get_usage_status(code) if code else None
+    return jsonify(
+        {
+            "enabled": stripe_enabled(),
+            "paid": is_paid_session(),
+            "priceJpy": PRICE_JPY,
+            "monthlyLimit": DEFAULT_MONTHLY_LIMIT,
+            "topupJpy": TOPUP_JPY,
+            "topupCredits": TOPUP_CREDITS,
+            "usage": usage,
+        }
+    )
 
 
 @bp.post("/api/billing/checkout")
@@ -81,6 +99,54 @@ def checkout_success():
 @bp.get("/billing/cancel")
 def checkout_cancel():
     return redirect("/")
+
+
+@bp.post("/api/billing/topup-checkout")
+def create_topup_checkout():
+    """追加クレジット(¥500で30回分)の購入。既に有料会員であることが前提。"""
+    if not stripe_enabled():
+        return jsonify({"error": "課金機能はまだ設定されていません。"}), 400
+    if not is_paid_session():
+        return jsonify({"error": "先に月額プランへの加入が必要です。"}), 402
+
+    stripe = get_stripe()
+    base_url = request.host_url.rstrip("/")
+    try:
+        checkout_session = stripe.checkout.Session.create(
+            mode="payment",
+            line_items=[{"price": get_topup_price_id(), "quantity": 1}],
+            success_url=f"{base_url}/billing/topup-success?session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{base_url}/billing/cancel",
+        )
+        return jsonify({"url": checkout_session.url})
+    except Exception as err:  # noqa: BLE001
+        return jsonify({"error": str(err)}), 500
+
+
+@bp.get("/billing/topup-success")
+def topup_success():
+    session_id = request.args.get("session_id")
+    code = session.get("access_code")
+    if not session_id or not code:
+        return "決済情報、またはログイン状態が見つかりません。", 400
+
+    stripe = get_stripe()
+    try:
+        checkout_session = stripe.checkout.Session.retrieve(session_id)
+        if checkout_session.payment_status == "paid":
+            add_bonus_credits(code, TOPUP_CREDITS)
+
+        return f"""
+        <html><head><meta charset="utf-8"><title>追加クレジット購入完了</title>
+        <style>body{{font-family:sans-serif;max-width:480px;margin:60px auto;padding:0 20px;line-height:1.8}}</style>
+        </head><body>
+        <h2>追加クレジットを購入しました</h2>
+        <p>{TOPUP_CREDITS}回分のAI呼び出し枠が追加されました。</p>
+        <p><a href="/">アプリに戻る</a></p>
+        </body></html>
+        """
+    except Exception as err:  # noqa: BLE001
+        return f"決済の確認中にエラーが発生しました: {err}", 500
 
 
 @bp.post("/api/billing/redeem")
