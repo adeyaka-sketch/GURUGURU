@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GURUGURU - 個性AI対話・個性C</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<header>
+  <h1>GURUGURU</h1>
+  <p class="subtitle">個性AIを作り、対話させ、そこから「個性C」を育てる</p>
+  <nav>
+    <button data-tab="guide" class="tab-btn active">使い方</button>
+    <button data-tab="profiles" class="tab-btn">個性プロフィール</button>
+    <button data-tab="dialogue" class="tab-btn">対話</button>
+    <button data-tab="individuality-c" class="tab-btn">個性C</button>
+    <button data-tab="enishi-map" class="tab-btn">縁の地図</button>
+    <button data-tab="reaction-test" class="tab-btn">反応テスト</button>
+    <button data-tab="scene-studio" class="tab-btn">シーン生成</button>
+  </nav>
+  <div id="billing-badge" class="billing-badge" style="display:none"></div>
+</header>
+
+<div id="paywall-overlay" class="paywall-overlay" style="display:none">
+  <div class="paywall-card">
+    <h2>GURUGURU Standard(月額980円)</h2>
+    <p>対話・個性C生成・シーン生成・反応テストなど、AI呼び出しを伴う機能は有料プランでご利用いただけます。個性の作成・編集・閲覧は無料のままです。</p>
+    <button type="button" id="paywall-subscribe-btn">¥980/月で始める</button>
+    <div class="paywall-divider">すでに登録済みの方</div>
+    <div class="paywall-redeem">
+      <input type="text" id="paywall-code-input" placeholder="アクセスコード(GURUGURU-XXXX-XXXX)" />
+      <button type="button" id="paywall-redeem-btn" class="secondary">コードを入力</button>
+    </div>
+    <div id="paywall-status" class="hint"></div>
+    <button type="button" id="paywall-close-btn" class="paywall-close">閉じる</button>
+  </div>
+</div>
+
+<main>
+  <!-- 使い方 -->
+  <section id="tab-guide" class="tab-panel active">
+    <h2>GURUGURUとは</h2>
+    <p>
+      GURUGURUは、あなた自身や周りの人の「個性」をAIとして作り、対話させることで、
+      一人では生まれない第三の人格「個性C」を育てていくサービスです。
+      個性Cは、AとBどちらにも還元できない、二人の"あいだ"にだけ生まれる存在です。
+    </p>
+
+    <h3>はじめての方向け・4ステップ</h3>
+    <ol class="guide-steps">
+      <li>
+        <strong>① 個性プロフィールを作る</strong>(無料)<br />
+        「個性プロフィール」タブで、名前・Console(今の迷い)・Belief(信念)・Emotion・Bias・
+        話し方の癖などを入力します。自分自身でも、友人や物語の登場人物でも構いません。
+        最低2人分作ると、次のステップに進めます。
+      </li>
+      <li>
+        <strong>② 2人を対話させる</strong>(有料プラン)<br />
+        「対話」タブで、作った個性2人と「問い(お題)」を選ぶと、AIが2人になりきって会話します。
+        話し方の癖や感情の動きも自動で表現されます。
+      </li>
+      <li>
+        <strong>③ 個性Cを見る・話す</strong>(有料プラン)<br />
+        対話が終わったら「個性C」タブで生成すると、2人の関係から浮かび上がる痕跡・すれ違い・
+        新しい問いが言葉になります。個性Cに直接話しかけることもできます。
+      </li>
+      <li>
+        <strong>④ 縁の地図・反応テスト・シーン生成で深める</strong>(有料プラン)<br />
+        「縁の地図」で関係全体を眺めたり、「反応テスト」で個性がブレていないか確認したり、
+        「シーン生成」で2人が登場する短編小説の一場面を自動で書かせたりできます。
+      </li>
+    </ol>
+
+    <h3>よくある質問</h3>
+    <dl class="guide-faq">
+      <dt>無料でできることは?</dt>
+      <dd>個性プロフィールの作成・編集・閲覧、縁の地図や個性Cのこれまでの履歴を見ることは無料です。</dd>
+      <dt>有料(月額980円)になるのは何が違うから?</dt>
+      <dd>AI(Claude)を呼び出す機能はすべて実費が発生するため、有料プランの対象です。対話・個性C生成・個性Cとの会話・反応テスト・シーン生成・気づき(自己発見)・自分ログの取り込みが該当します。</dd>
+      <dt>個性Cって結局何ですか?</dt>
+      <dd>2人の対話を重ねるたびに育っていく、記録ではなく「関係そのもの」です。矛盾や違いを解消せず、あえて残したまま新しい問いを生み出します。</dd>
+    </dl>
+  </section>
+
+  <!-- 個性プロフィール -->
+  <section id="tab-profiles" class="tab-panel">
+    <div class="panel-grid">
+      <div class="panel-list">
+        <h2>登録済みの個性</h2>
+        <ul id="personality-list"></ul>
+        <button id="new-personality-btn">+ 新しい個性を作る</button>
+      </div>
+      <div class="panel-form">
+        <h2 id="personality-form-title">新しい個性</h2>
+        <form id="personality-form">
+          <input type="hidden" id="personality-id" />
+          <label>名前<input type="text" id="p-name" required /></label>
+          <label>Console(今どう感じ、迷い、判断しているか)
+            <textarea id="p-console" rows="2"></textarea>
+          </label>
+          <label>Belief(何を信じ、何を守ろうとするか)
+            <textarea id="p-belief" rows="2"></textarea>
+          </label>
+          <label>Emotion(感情が判断をどう変えるか)
+            <textarea id="p-emotion" rows="2"></textarea>
+          </label>
+          <label>Bias(本人固有の偏り・判断のクセ)
+            <textarea id="p-bias" rows="2"></textarea>
+          </label>
+
+          <div class="field-group-heading">感情を「言わせず、滲ませる」ための設定</div>
+          <label>Voice Rhythm(話し方の癖・間・口癖)
+            <textarea id="p-voice-rhythm" rows="2" placeholder="例: 短文で言い切る。困ると語尾を伸ばす。「別に」が口癖。"></textarea>
+          </label>
+          <label>Deflection(本音とのズレ・防御反応)
+            <textarea id="p-deflection" rows="2" placeholder="例: 傷つくと饒舌になって早口で笑う。動揺すると急に手を動かして片付け始める。"></textarea>
+          </label>
+          <label>Sensory Anchor(感情と結びついた具体物・場所・天気)
+            <textarea id="p-sensory-anchor" rows="2" placeholder="例: 生乾きの洗濯物の匂い。雨上がりの匂い。特定の音楽。"></textarea>
+          </label>
+
+          <div class="memory-section">
+            <label>Memory(経験と意味づけ)</label>
+            <div id="memory-list"></div>
+            <button type="button" id="add-memory-btn">+ 経験を追加</button>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit">保存</button>
+            <button type="button" id="delete-personality-btn" class="danger">削除</button>
+          </div>
+        </form>
+
+        <div id="import-log-section" class="import-log-section" style="display:none">
+          <h2>自分ログを取り込む(育ち続けるコピー個性)</h2>
+          <p class="hint">
+            日記・SNS投稿・チャットのやり取りなどを貼り付けると、新しい経験(Memory)として取り込まれます。
+            GPT/ClaudeアカウントやSNSとのライブ連携は行っていません(理由は下記)。テキストを貼り付ける方式です。
+          </p>
+          <textarea id="import-log-text" rows="4" placeholder="最近の発言・日記・投稿などを貼り付けてください"></textarea>
+          <button type="button" id="import-log-btn">取り込む</button>
+          <div id="import-log-result"></div>
+        </div>
+
+        <div id="reflect-section" class="import-log-section" style="display:none">
+          <h2>気づき(対話を通じて見つかる、自分でも知らなかった自分)</h2>
+          <p class="hint">
+            複数の相手との対話で蓄積された感情の記録を横断的に振り返り、自己認識と実際の行動パターンのズレを言葉にします。
+            Console(今の状態)は自動で更新されます。Belief/Biasは提案のみで、下のボタンを押した場合のみ反映されます。
+          </p>
+          <button type="button" id="reflect-btn">対話をふりかえる</button>
+          <div id="reflect-status" class="hint"></div>
+          <div id="self-discovery-timeline" class="c-timeline"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 対話 -->
+  <section id="tab-dialogue" class="tab-panel">
+    <h2>個性A ↔ 個性B の対話</h2>
+    <form id="dialogue-form" class="dialogue-form">
+      <label>個性A<select id="d-personality-a"></select></label>
+      <label>個性B<select id="d-personality-b"></select></label>
+      <label>問い・お題<input type="text" id="d-topic" placeholder="例: 締め切りに遅れそうなとき、どうする?" required /></label>
+      <label>ターン数(往復)<input type="number" id="d-turns" min="1" max="8" value="4" /></label>
+      <button type="submit">対話開始</button>
+    </form>
+    <div id="dialogue-status"></div>
+    <div id="dialogue-transcript" class="transcript"></div>
+    <button id="generate-c-btn" style="display:none">この対話から個性Cを生成する</button>
+  </section>
+
+  <!-- 個性C -->
+  <section id="tab-individuality-c" class="tab-panel">
+    <h2>個性Cのタイムライン</h2>
+    <form id="c-select-form" class="dialogue-form">
+      <label>個性A<select id="c-personality-a"></select></label>
+      <label>個性B<select id="c-personality-b"></select></label>
+      <button type="submit">履歴を表示</button>
+    </form>
+    <div id="c-timeline" class="c-timeline"></div>
+
+    <div id="c-chat-section" class="c-chat-section" style="display:none">
+      <h2>個性Cと話す</h2>
+      <p class="hint">
+        個性Cは、AにもBにも還元されない「あいだ」の存在です。あえて一貫した結論を出さず、
+        AとBの視点の間で揺れながら応答します。
+      </p>
+      <div id="c-chat-log" class="c-chat-log"></div>
+      <form id="c-chat-form" class="c-chat-form">
+        <input type="text" id="c-chat-input" placeholder="個性Cに話しかける..." autocomplete="off" />
+        <button type="submit">送信</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- 縁の地図 -->
+  <section id="tab-enishi-map" class="tab-panel">
+    <h2>縁の地図</h2>
+    <p class="hint">中心にする個性を選ぶと、その個性から見た関係(信頼・距離・緊張・影響)が見られます。ノードをクリックすると詳細が表示されます。</p>
+    <div class="enishi-toolbar">
+      <label>中心の個性<select id="map-center-select"></select></label>
+    </div>
+    <div class="enishi-layout">
+      <svg id="enishi-svg" viewBox="0 0 640 640"></svg>
+      <div id="enishi-detail" class="enishi-detail">
+        <p class="hint">ノードまたは線をクリックすると、ここに詳細が表示されます。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 反応テスト -->
+  <section id="tab-reaction-test" class="tab-panel">
+    <h2>反応テスト(個性の一貫性チェック)</h2>
+    <p class="hint">定型の質問をこの個性にぶつけ、意図した人格として一貫した応答が返ってくるかを確認します。</p>
+    <form id="reaction-test-form" class="dialogue-form">
+      <label>対象の個性<select id="rt-personality"></select></label>
+      <button type="submit">テストを実行</button>
+    </form>
+    <div id="reaction-test-status" class="hint"></div>
+    <div id="reaction-test-results" class="rt-results"></div>
+  </section>
+
+  <!-- シーン生成 -->
+  <section id="tab-scene-studio" class="tab-panel">
+    <h2>シーン生成(自動で短編の一場面を書く)</h2>
+    <p class="hint">
+      2人の個性・関係性・(あれば)過去の対話ログを素材に、地の文付きの短編小説の一場面を自動生成します。
+      台詞のやり取りだけでなく、Voice Rhythm・Deflection・Sensory Anchorが情景描写にも反映されます。
+    </p>
+    <form id="scene-form" class="dialogue-form">
+      <label>個性A<select id="scene-personality-a"></select></label>
+      <label>個性B<select id="scene-personality-b"></select></label>
+      <label>場面の状況<input type="text" id="scene-situation" placeholder="例: 雨宿りで偶然二人きりになった" /></label>
+      <button type="submit">シーンを生成</button>
+    </form>
+    <div id="scene-status" class="hint"></div>
+    <div id="scene-output" class="scene-output"></div>
+
+    <h3 class="scene-history-heading">生成履歴</h3>
+    <div id="scene-history" class="scene-history"></div>
+  </section>
+</main>
+
+<script src="js/app.js"></script>
+</body>
+</html>
