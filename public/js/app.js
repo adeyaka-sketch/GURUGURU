@@ -1,5 +1,6 @@
 const state = {
   personalities: [],
+  bornChildren: [],
   selectedPersonalityId: null,
   lastDialogueId: null,
   cChatPair: null,
@@ -51,9 +52,14 @@ async function api(path, options = {}) {
   return res.json();
 }
 
-// ---------- 個性プロフィール ----------
+// ---------- キャラクター ----------
 async function loadPersonalities() {
-  state.personalities = await api("/personalities");
+  const [personalities, bornChildren] = await Promise.all([
+    api("/personalities"),
+    api("/individuality-c/born").catch(() => []),
+  ]);
+  state.personalities = personalities;
+  state.bornChildren = bornChildren;
   renderPersonalityList();
   fillPersonalitySelects();
 }
@@ -69,6 +75,20 @@ function renderPersonalityList() {
     li.addEventListener("click", () => selectPersonality(p.id));
     list.appendChild(li);
   });
+  (state.bornChildren || []).forEach((c) => {
+    const li = document.createElement("li");
+    li.className = "born-child-item";
+    li.innerHTML = `<span class="born-child-badge">生まれた子</span>${escapeHtml(c.personality_a_name)} と ${escapeHtml(c.personality_b_name)} から生まれた子`;
+    li.addEventListener("click", () => openBornChild(c.personality_a_id, c.personality_b_id));
+    list.appendChild(li);
+  });
+}
+
+function openBornChild(aId, bId) {
+  document.querySelector('.tab-btn[data-tab="individuality-c"]').click();
+  document.getElementById("c-personality-a").value = aId;
+  document.getElementById("c-personality-b").value = bId;
+  document.getElementById("c-select-form").requestSubmit();
 }
 
 function fillPersonalitySelects() {
@@ -379,22 +399,23 @@ document.getElementById("generate-c-btn").addEventListener("click", async () => 
   if (!state.lastDialogueId) return;
   const btn = document.getElementById("generate-c-btn");
   btn.disabled = true;
-  btn.textContent = "個性Cを生成中...";
+  btn.textContent = "あたらしい子を生み出しています...";
   try {
     await api("/individuality-c/generate", {
       method: "POST",
       body: JSON.stringify({ dialogueId: state.lastDialogueId }),
     });
-    alert("個性Cを生成しました。「個性C」タブで確認できます。");
+    alert("あたらしい子が生まれました。「生まれた子」タブで確認できます。");
+    await loadPersonalities();
   } catch (err) {
     alert(err.message);
   } finally {
     btn.disabled = false;
-    btn.textContent = "この対話から個性Cを生成する";
+    btn.textContent = "この対話から、あたらしい子を生み出す";
   }
 });
 
-// ---------- 個性C ----------
+// ---------- 生まれた子(個性C) ----------
 document.getElementById("c-select-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const aId = document.getElementById("c-personality-a").value;
@@ -432,7 +453,7 @@ function renderCChatLog(turns) {
   turns.forEach((t) => {
     const bubble = document.createElement("div");
     bubble.className = `c-chat-bubble role-${t.role}`;
-    bubble.innerHTML = `<div class="c-chat-role">${t.role === "user" ? "あなた" : "個性C"}</div><div>${escapeHtml(t.content)}</div>`;
+    bubble.innerHTML = `<div class="c-chat-role">${t.role === "user" ? "あなた" : "生まれた子"}</div><div>${escapeHtml(t.content)}</div>`;
     log.appendChild(bubble);
   });
   log.scrollTop = log.scrollHeight;
@@ -461,7 +482,7 @@ document.getElementById("c-chat-form").addEventListener("submit", async (e) => {
     });
     const cBubble = document.createElement("div");
     cBubble.className = "c-chat-bubble role-c";
-    cBubble.innerHTML = `<div class="c-chat-role">個性C</div><div>${escapeHtml(reply)}</div>`;
+    cBubble.innerHTML = `<div class="c-chat-role">生まれた子</div><div>${escapeHtml(reply)}</div>`;
     log.appendChild(cBubble);
     log.scrollTop = log.scrollHeight;
   } catch (err) {
@@ -473,14 +494,14 @@ function renderCTimeline(history) {
   const timeline = document.getElementById("c-timeline");
   timeline.innerHTML = "";
   if (history.length === 0) {
-    timeline.innerHTML = "<p>まだこのペアの個性Cはありません。「対話」タブで対話を行い、生成してください。</p>";
+    timeline.innerHTML = "<p>まだこのペアから生まれた子はいません。「会話させる」タブで会話させ、生み出してください。</p>";
     return;
   }
   history.slice().reverse().forEach((snapshot, idx) => {
     const card = document.createElement("div");
     card.className = "c-card";
     card.innerHTML = `
-      <h3>個性C スナップショット #${history.length - idx}</h3>
+      <h3>生まれた子 スナップショット #${history.length - idx}</h3>
       <div class="c-date">${snapshot.created_at}</div>
       ${cField("対話の痕跡", snapshot.traces)}
       ${cField("差分(解消されなかった違い)", snapshot.differences)}

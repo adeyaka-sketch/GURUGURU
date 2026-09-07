@@ -124,6 +124,30 @@ def list_history():
     return jsonify(get_pair_history(a_id, b_id))
 
 
+@bp.get("/born")
+def list_born():
+    """
+    これまでに生まれた「AとBから生まれた子」を、ペアごとに最新のスナップショットだけにまとめて返す。
+    キャラクター一覧に表示する読み取り専用カード用(閲覧は無料機能のため課金ガードなし)。
+    """
+    rows = query(
+        """SELECT ic.*, pa.name AS personality_a_name, pb.name AS personality_b_name
+           FROM individuality_c ic
+           JOIN personalities pa ON pa.id = ic.personality_a_id
+           JOIN personalities pb ON pb.id = ic.personality_b_id
+           ORDER BY ic.created_at DESC"""
+    )
+    seen = set()
+    result = []
+    for r in rows:
+        key = frozenset((r["personality_a_id"], r["personality_b_id"]))
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(dict(r))
+    return jsonify(result)
+
+
 def get_chat_turns(a_id, b_id):
     rows = query(
         """SELECT * FROM individuality_c_turns
@@ -197,7 +221,7 @@ def post_chat():
 
     history = get_pair_history(a_id, b_id)
     if not history:
-        return jsonify({"error": "まだこのペアの個性Cが生成されていません。先に「対話」タブで対話し、個性Cを生成してください。"}), 400
+        return jsonify({"error": "まだこのペアから生まれた子はいません。先に「会話させる」タブで会話させ、生み出してください。"}), 400
     snapshot = history[-1]
 
     try:

@@ -9,12 +9,12 @@
 <body>
 <header>
   <h1>GURUGURU</h1>
-  <p class="subtitle">キャラクターを作り、会話させて、ふたりだけの「間柄」を育てる</p>
+  <p class="subtitle">キャラクターを作り、会話させて、ふたりの対話から、あたらしい子を生み出す</p>
   <nav>
     <button data-tab="guide" class="tab-btn active">はじめかた</button>
     <button data-tab="profiles" class="tab-btn">キャラクター</button>
     <button data-tab="dialogue" class="tab-btn">会話させる</button>
-    <button data-tab="individuality-c" class="tab-btn">ふたりの間柄</button>
+    <button data-tab="individuality-c" class="tab-btn">生まれた子</button>
     <button data-tab="enishi-map" class="tab-btn">つながりマップ</button>
     <button data-tab="reaction-test" class="tab-btn">らしさチェック</button>
     <button data-tab="scene-studio" class="tab-btn">ワンシーン</button>
@@ -26,7 +26,7 @@
   <div class="paywall-card">
     <div id="paywall-plan-view">
       <h2>GURUGURU Standard(月額980円)</h2>
-      <p>会話させる・間柄を育てる・ワンシーンを書く・らしさチェックなど、AIが実際に動く機能は有料プランでご利用いただけます。キャラクター作り・編集・閲覧はずっと無料です。ひと月にAIとのやり取り50回分が含まれます。</p>
+      <p>会話させる・あたらしい子を生み出す・ワンシーンを書く・らしさチェックなど、AIが実際に動く機能は有料プランでご利用いただけます。キャラクター作り・編集・閲覧はずっと無料です。ひと月にAIとのやり取り50回分が含まれます。</p>
       <button type="button" id="paywall-subscribe-btn">¥980/月ではじめる</button>
       <div class="paywall-divider">すでに登録済みの方</div>
       <div class="paywall-redeem">
@@ -50,8 +50,8 @@
     <h2>GURUGURUって何?</h2>
     <p>
       GURUGURUは、あなた自身や、周りの人、あるいは物語の登場人物を「キャラクター」として作り、
-      二人を会話させることで、二人だけの「間柄(あいだがら)」を育てていくサービスです。
-      間柄は、どちらか一人のものではなく、二人が出会って初めて生まれる、もうひとつの物語です。
+      二人を会話させることで、AにもBにも属さない、あたらしい人格「子」を生み出していくサービスです。
+      子は、二人のコピーでも合成でもなく、二人が出会って初めて生まれる、もうひとりの人格です。
     </p>
 
     <h3>はじめての方向け・4ステップ</h3>
@@ -69,9 +69,9 @@
         話し方のクセや感情の動きも自動で表現されます。
       </li>
       <li>
-        <strong>③ 間柄を見る・話しかける</strong>(有料プラン)<br />
-        会話が終わったら「ふたりの間柄」タブで生成すると、二人の関係から浮かび上がった
-        すれ違いや、まだ解けていない問いが言葉になります。育った間柄に、直接話しかけることもできます。
+        <strong>③ 生まれた子に会う・話しかける</strong>(有料プラン)<br />
+        会話が終わったら「生まれた子」タブで生成すると、二人の対話から生まれたあたらしい人格が、
+        すれ違いや、まだ解けていない問いを抱えたまま姿を現します。生まれた子に、直接話しかけることもできます。
       </li>
       <li>
         <strong>④ つながりマップ・らしさチェック・ワンシーンで深める</strong>(有料プラン)<br />
@@ -83,11 +83,11 @@
     <h3>よくある質問</h3>
     <dl class="guide-faq">
       <dt>無料でできることは?</dt>
-      <dd>キャラクターの作成・編集・閲覧、つながりマップやこれまでの間柄の履歴を見ることは無料です。</dd>
+      <dd>キャラクターの作成・編集・閲覧、つながりマップやこれまでに生まれた子の履歴を見ることは無料です。</dd>
       <dt>有料(月額980円)になるのは何が違うから?</dt>
-      <dd>AIが実際に会話や文章を生み出す機能はすべて実費が発生するため、有料プランの対象です。会話させる・間柄を育てる・間柄との会話・らしさチェック・ワンシーン・新発見・自分ログの取り込みが該当します。</dd>
-      <dt>「間柄」って結局何ですか?</dt>
-      <dd>二人が会話を重ねるたびに育っていく、記録ではなく「関係そのもの」です。すれ違いや違いを無理に解決せず、あえて残したまま、新しい問いを生み出します。</dd>
+      <dd>AIが実際に会話や文章を生み出す機能はすべて実費が発生するため、有料プランの対象です。会話させる・あたらしい子を生み出す・生まれた子との会話・らしさチェック・ワンシーン・新発見・自分ログの取り込みが該当します。</dd>
+      <dt>「生まれた子」って結局何ですか?</dt>
+      <dd>AとBが会話を重ねるたびに育っていく、AにもBにも還元できないあたらしい人格です。記録ではなく、二人の対話の中に立ち上がる第三者で、すれ違いや違いを無理に解決せず、あえて残したまま、新しい問いを生み出し続けます。</dd>
     </dl>
   </section>
 
@@ -182,29 +182,29 @@
     </form>
     <div id="dialogue-status"></div>
     <div id="dialogue-transcript" class="transcript"></div>
-    <button id="generate-c-btn" style="display:none">この会話から「間柄」を育てる</button>
+    <button id="generate-c-btn" style="display:none">この対話から、あたらしい子を生み出す</button>
   </section>
 
-  <!-- ふたりの間柄 -->
+  <!-- 生まれた子 -->
   <section id="tab-individuality-c" class="tab-panel">
-    <h2>ふたりの間柄</h2>
-    <p class="hint">間柄は、AにもBにも還元できない、二人の"あいだ"だけに育つ物語です。会話を重ねるほど育っていきます。</p>
+    <h2>生まれた子</h2>
+    <p class="hint">AとBの対話から生まれた、あたらしい人格です。AにもBにも還元できず、会話を重ねるほど育っていきます。</p>
     <form id="c-select-form" class="dialogue-form">
       <label>ひとり目<select id="c-personality-a"></select></label>
       <label>もうひとり<select id="c-personality-b"></select></label>
-      <button type="submit">これまでの間柄を見る</button>
+      <button type="submit">生まれた子に会う</button>
     </form>
     <div id="c-timeline" class="c-timeline"></div>
 
     <div id="c-chat-section" class="c-chat-section" style="display:none">
-      <h2>この間柄に話しかけてみる</h2>
+      <h2>この子に話しかけてみる</h2>
       <p class="hint">
-        間柄は、どちらか一人の意見にはなりません。あえて結論を出しきらず、
+        この子は、どちらか一人の意見にはなりません。あえて結論を出しきらず、
         二人の視点のあいだで揺れながら答えます。
       </p>
       <div id="c-chat-log" class="c-chat-log"></div>
       <form id="c-chat-form" class="c-chat-form">
-        <input type="text" id="c-chat-input" placeholder="この間柄に話しかける..." autocomplete="off" />
+        <input type="text" id="c-chat-input" placeholder="この子に話しかける..." autocomplete="off" />
         <button type="submit">送信</button>
       </form>
     </div>
