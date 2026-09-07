@@ -24,8 +24,19 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
     }
     if (btn.dataset.tab === "scene-studio") {
       fillPersonalitySelects();
+      refreshSceneHistoryFromSelects();
     }
   });
+});
+
+function refreshSceneHistoryFromSelects() {
+  const aId = document.getElementById("scene-personality-a").value;
+  const bId = document.getElementById("scene-personality-b").value;
+  if (aId && bId) loadSceneHistory(aId, bId);
+}
+
+["scene-personality-a", "scene-personality-b"].forEach((id) => {
+  document.getElementById(id).addEventListener("change", refreshSceneHistoryFromSelects);
 });
 
 // ---------- API helpers ----------
