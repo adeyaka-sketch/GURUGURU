@@ -21,25 +21,30 @@ def get_relationship(personality_id, counterpart_id):
 def describe_personality(p):
     lines = [
         f"# {p['name']}",
-        f"Console: {p['console'] or '-'}",
-        f"Belief: {p['belief'] or '-'}",
-        f"Emotion: {p['emotion'] or '-'}",
-        f"Bias: {p['bias'] or '-'}",
+        f"今の気持ち・迷い: {p['console'] or '-'}",
+        f"大事にしていること: {p['belief'] or '-'}",
+        f"感情のクセ: {p['emotion'] or '-'}",
+        f"考え方のクセ: {p['bias'] or '-'}",
     ]
     if p["voice_rhythm"]:
-        lines.append(f"Voice Rhythm(話し方の癖): {p['voice_rhythm']}")
+        lines.append(f"話し方のクセ: {p['voice_rhythm']}")
     if p["deflection"]:
-        lines.append(f"Deflection(本音とのズレ): {p['deflection']}")
+        lines.append(f"本音を隠すときの様子: {p['deflection']}")
     if p["sensory_anchor"]:
-        lines.append(f"Sensory Anchor(感情と結びついた具体物): {p['sensory_anchor']}")
+        lines.append(f"思い出の品・匂い・場所: {p['sensory_anchor']}")
 
     memories = query(
-        "SELECT content, meaning FROM memories WHERE personality_id = ? ORDER BY created_at DESC LIMIT 3",
+        "SELECT who_or_what, content, meaning, influence FROM memories "
+        "WHERE personality_id = ? ORDER BY influence DESC, created_at DESC LIMIT 3",
         (p["id"],),
     )
     if memories:
-        memory_text = "\n".join(f"  - {m['content']}(→ {m['meaning']})" for m in memories)
-        lines.append(f"Memory:\n{memory_text}")
+        memory_text = "\n".join(
+            f"  - {(m['who_or_what'] + 'との出来事: ') if m['who_or_what'] else ''}"
+            f"{m['content']}(→ {m['meaning']}、影響度{m['influence']}/100)"
+            for m in memories
+        )
+        lines.append(f"これまでの出会いと経験:\n{memory_text}")
     return "\n".join(lines)
 
 
@@ -54,7 +59,7 @@ def build_scene_prompt(personality_a, personality_b, situation, raw_dialogue_tex
             "",
             "# 執筆の絶対原則",
             "- 登場人物の感情を地の文で直接説明しないこと(「〜と感じた」「悲しかった」のような直接的な感情語を極力避ける)",
-            "- 各人物のVoice Rhythm・Deflection・Sensory Anchorを、台詞だけでなく地の文の描写(仕草・視線・沈黙・周囲の物)にも積極的に使うこと",
+            "- 各人物の話し方のクセ・本音を隠すときの様子・思い出の品や匂いや場所を、台詞だけでなく地の文の描写(仕草・視線・沈黙・周囲の物)にも積極的に使うこと",
             "- 沈黙・間・視線・仕草など、言葉にならないものを丁寧に描くこと",
             "- 「相手についての思い込み」がある場合、それに基づくすれ違いを、説明せずに行動と台詞の端々で滲ませること",
             "- 会話を完全に解決させず、場面の終わりに小さな変化(何かがわずかに動いた、という手触り)を置くこと",

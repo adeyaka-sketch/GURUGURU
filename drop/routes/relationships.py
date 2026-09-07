@@ -7,7 +7,7 @@ bp = Blueprint("relationships", __name__, url_prefix="/api/relationships")
 
 @bp.get("/<int:personality_id>")
 def list_relationships(personality_id):
-    """指定した個性を中心とした縁の地図データ(関係一覧)を返す。"""
+    """指定したキャラクターを中心としたつながりマップのデータ(会話した相手の一覧)を返す。"""
     rows = query(
         """SELECT rc.*, p.name AS counterpart_name FROM relationship_context rc
            JOIN personalities p ON p.id = rc.counterpart_id
@@ -15,6 +15,28 @@ def list_relationships(personality_id):
         (personality_id,),
     )
     return jsonify([dict(r) for r in rows])
+
+
+@bp.get("/<int:personality_id>/influences")
+def list_influences(personality_id):
+    """
+    「これまでの出会いと経験」から、誰・何にどれくらい影響を受けてきたかを、
+    who_or_what単位でまとめて返す(つながりマップの点線ノード用)。
+    実際に会話した相手(relationship_context)とは別枠で、まだ会話していない・
+    そもそもキャラクターとして存在しない人物・物も含む。
+    """
+    rows = query(
+        """SELECT who_or_what, content, meaning, influence FROM memories
+           WHERE personality_id = ? AND who_or_what != '' ORDER BY influence DESC""",
+        (personality_id,),
+    )
+    grouped = {}
+    for r in rows:
+        key = r["who_or_what"]
+        entry = grouped.setdefault(key, {"whoOrWhat": key, "influence": 0, "memories": []})
+        entry["influence"] = max(entry["influence"], r["influence"])
+        entry["memories"].append({"content": r["content"], "meaning": r["meaning"], "influence": r["influence"]})
+    return jsonify(sorted(grouped.values(), key=lambda e: e["influence"], reverse=True))
 
 
 @bp.get("/pair/<int:a_id>/<int:b_id>")

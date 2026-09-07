@@ -38,9 +38,21 @@ def insert_memories(personality_id, memories):
     for m in memories:
         content = (m or {}).get("content", "").strip()
         if content:
+            try:
+                influence = int(m.get("influence", 50))
+            except (TypeError, ValueError):
+                influence = 50
+            influence = max(0, min(100, influence))
             execute(
-                "INSERT INTO memories (personality_id, content, meaning) VALUES (?, ?, ?)",
-                (personality_id, content, (m.get("meaning") or "").strip()),
+                """INSERT INTO memories (personality_id, who_or_what, content, meaning, influence)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (
+                    personality_id,
+                    (m.get("whoOrWhat") or "").strip(),
+                    content,
+                    (m.get("meaning") or "").strip(),
+                    influence,
+                ),
             )
 
 
@@ -172,7 +184,7 @@ def build_import_log_prompt(personality, raw_text):
             "これは本人が実際に経験した新しい出来事として扱ってください。",
             "",
             "以下を行ってください:",
-            "1. このテキストから、本人にとって意味のある「新しい経験」を1つ抽出し、Memory(経験・意味づけ)として構造化する",
+            "1. このテキストから、本人にとって意味のある「新しい出来事」を1つ抽出し、出来事・意味づけとして構造化する",
             "2. このテキストににじみ出ている話し方の癖・防御反応・感情と結びついた具体物があれば、追記候補として抽出する"
             "(なければ空文字でよい。既存の設定を上書きするのではなく、あくまで「追記候補」として出す)",
             "",
@@ -183,8 +195,8 @@ def build_import_log_prompt(personality, raw_text):
     )
     user = (
         f"# {personality['name']}の既存の個性データ\n"
-        f"Console: {personality['console'] or '-'}\nBelief: {personality['belief'] or '-'}\n"
-        f"Emotion: {personality['emotion'] or '-'}\nBias: {personality['bias'] or '-'}\n\n"
+        f"今の気持ち・迷い: {personality['console'] or '-'}\n大事にしていること: {personality['belief'] or '-'}\n"
+        f"感情のクセ: {personality['emotion'] or '-'}\n考え方のクセ: {personality['bias'] or '-'}\n\n"
         f"# 取り込む生テキスト\n{raw_text}"
     )
     return system, user

@@ -32,8 +32,10 @@ CREATE TABLE IF NOT EXISTS personalities (
 CREATE TABLE IF NOT EXISTS memories (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   personality_id INTEGER NOT NULL REFERENCES personalities(id) ON DELETE CASCADE,
+  who_or_what TEXT DEFAULT '',
   content TEXT NOT NULL,
   meaning TEXT DEFAULT '',
+  influence INTEGER DEFAULT 50,
   created_at TEXT DEFAULT (datetime('now'))
 );
 
@@ -178,6 +180,15 @@ def _migrate():
     for col, decl in personality_new_cols.items():
         if col not in personality_cols:
             _conn.execute(f"ALTER TABLE personalities ADD COLUMN {col} {decl}")
+
+    memory_cols = {row["name"] for row in _conn.execute("PRAGMA table_info(memories)")}
+    memory_new_cols = {
+        "who_or_what": "TEXT DEFAULT ''",
+        "influence": "INTEGER DEFAULT 50",
+    }
+    for col, decl in memory_new_cols.items():
+        if col not in memory_cols:
+            _conn.execute(f"ALTER TABLE memories ADD COLUMN {col} {decl}")
 
     access_code_cols = {row["name"] for row in _conn.execute("PRAGMA table_info(access_codes)")}
     access_code_new_cols = {

@@ -133,19 +133,33 @@ function resetPersonalityForm() {
 function renderMemoryRows(memories) {
   const container = document.getElementById("memory-list");
   container.innerHTML = "";
-  memories.forEach((m) => addMemoryRow(m.content, m.meaning));
+  memories
+    .slice()
+    .sort((a, b) => (b.influence ?? 50) - (a.influence ?? 50))
+    .forEach((m) => addMemoryRow(m.who_or_what, m.content, m.meaning, m.influence));
   if (memories.length === 0) addMemoryRow();
 }
 
-function addMemoryRow(content = "", meaning = "") {
+function addMemoryRow(whoOrWhat = "", content = "", meaning = "", influence = 50) {
   const container = document.getElementById("memory-list");
   const row = document.createElement("div");
   row.className = "memory-row";
   row.innerHTML = `
-    <input type="text" placeholder="どんな経験をしたか" class="memory-content" value="${escapeHtml(content)}" />
-    <input type="text" placeholder="どう意味づけたか" class="memory-meaning" value="${escapeHtml(meaning)}" />
+    <input type="text" placeholder="誰・何との出会いか(例: 母、初めての職場、あの日の雨)" class="memory-who" value="${escapeHtml(whoOrWhat)}" />
+    <input type="text" placeholder="どんな出来事だったか" class="memory-content" value="${escapeHtml(content)}" />
+    <input type="text" placeholder="どう感じ、今にどう影響しているか" class="memory-meaning" value="${escapeHtml(meaning)}" />
+    <div class="memory-influence-row">
+      <label>影響度</label>
+      <input type="range" min="0" max="100" class="memory-influence" value="${influence ?? 50}" />
+      <span class="memory-influence-value">${influence ?? 50}</span>
+    </div>
     <button type="button" class="secondary remove-memory">×</button>
   `;
+  const slider = row.querySelector(".memory-influence");
+  const valueLabel = row.querySelector(".memory-influence-value");
+  slider.addEventListener("input", () => {
+    valueLabel.textContent = slider.value;
+  });
   row.querySelector(".remove-memory").addEventListener("click", () => row.remove());
   container.appendChild(row);
 }
@@ -163,8 +177,10 @@ document.getElementById("personality-form").addEventListener("submit", async (e)
   e.preventDefault();
   const id = document.getElementById("personality-id").value;
   const memories = Array.from(document.querySelectorAll(".memory-row")).map((row) => ({
+    whoOrWhat: row.querySelector(".memory-who").value,
     content: row.querySelector(".memory-content").value,
     meaning: row.querySelector(".memory-meaning").value,
+    influence: Number(row.querySelector(".memory-influence").value),
   }));
   const payload = {
     name: document.getElementById("p-name").value,
@@ -217,12 +233,12 @@ document.getElementById("import-log-btn").addEventListener("click", async () => 
     const s = result.suggestions || {};
     resultEl.innerHTML = `
       <div class="suggestion-card">
-        <div><strong>追加されたMemory:</strong> ${escapeHtml(result.memory.content)}</div>
-        <div class="hint">意味づけ: ${escapeHtml(result.memory.meaning || "-")}</div>
+        <div><strong>追加された出来事:</strong> ${escapeHtml(result.memory.content)}</div>
+        <div class="hint">どう感じたか: ${escapeHtml(result.memory.meaning || "-")}</div>
         ${result.note ? `<div class="suggestion-label">考察</div><div>${escapeHtml(result.note)}</div>` : ""}
-        ${s.voiceRhythmAddition ? `<div class="suggestion-label">Voice Rhythm 追記候補</div><div>${escapeHtml(s.voiceRhythmAddition)}</div>` : ""}
-        ${s.deflectionAddition ? `<div class="suggestion-label">Deflection 追記候補</div><div>${escapeHtml(s.deflectionAddition)}</div>` : ""}
-        ${s.sensoryAnchorAddition ? `<div class="suggestion-label">Sensory Anchor 追記候補</div><div>${escapeHtml(s.sensoryAnchorAddition)}</div>` : ""}
+        ${s.voiceRhythmAddition ? `<div class="suggestion-label">話し方のクセ 追記候補</div><div>${escapeHtml(s.voiceRhythmAddition)}</div>` : ""}
+        ${s.deflectionAddition ? `<div class="suggestion-label">本音を隠すときの様子 追記候補</div><div>${escapeHtml(s.deflectionAddition)}</div>` : ""}
+        ${s.sensoryAnchorAddition ? `<div class="suggestion-label">思い出の品・匂い・場所 追記候補</div><div>${escapeHtml(s.sensoryAnchorAddition)}</div>` : ""}
         <p class="hint">追記候補は自動反映されません。良ければ上のフォームに手動でコピーして保存してください。</p>
       </div>
     `;
@@ -499,11 +515,24 @@ async function renderEnishiMap(centerId) {
   if (!centerId) return;
 
   const center = state.personalities.find((p) => String(p.id) === String(centerId));
-  const relationships = await api(`/relationships/${centerId}`);
+  const [relationships, influences] = await Promise.all([
+    api(`/relationships/${centerId}`),
+    api(`/relationships/${centerId}/influences`),
+  ]);
 
   const cx = 320;
   const cy = 320;
   const radius = 220;
+  const ghostRadius = 300;
+
+  // 過去の出会い・経験(点線ノード)を先に描く。会話した相手の実線より外側・背面に配置する。
+  influences.forEach((inf, i) => {
+    const angle = (i / Math.max(influences.length, 1)) * Math.PI * 2 - Math.PI / 2 + Math.PI / (influences.length * 2 || 1);
+    const x = cx + ghostRadius * Math.cos(angle);
+    const y = cy + ghostRadius * Math.sin(angle);
+    drawGhostEdge(svg, cx, cy, x, y, inf.influence);
+    drawGhostNode(svg, x, y, inf.whoOrWhat, inf.influence, () => showInfluenceDetail(inf));
+  });
 
   // 中心ノード
   drawNode(svg, cx, cy, center.name, true, () => showPersonDetail(center.id));
@@ -518,8 +547,8 @@ async function renderEnishiMap(centerId) {
     drawNode(svg, x, y, rel.counterpart_name, false, () => showPersonDetail(rel.counterpart_id));
   });
 
-  if (relationships.length === 0) {
-    showEnishiMessage("この個性にはまだ関係の記録がありません。「対話」タブで他の個性と対話してください。");
+  if (relationships.length === 0 && influences.length === 0) {
+    showEnishiMessage("この個性にはまだ、つながりの記録がありません。「会話させる」タブで会話させるか、プロフィールに「これまでの出会いと経験」を追加してください。");
   }
 }
 
@@ -575,6 +604,64 @@ function drawEdge(svg, x1, y1, x2, y2, label, onClick) {
   svg.insertBefore(g, svg.firstChild);
 }
 
+function drawGhostNode(svg, x, y, name, influence, onClick) {
+  const g = document.createElementNS(SVG_NS, "g");
+  g.setAttribute("class", "enishi-node ghost");
+  g.addEventListener("click", onClick);
+
+  // 影響度(0〜100)を、半径18〜34px・不透明度0.35〜0.9にマッピングして視覚化する
+  const r = 18 + (influence / 100) * 16;
+  const opacity = 0.35 + (influence / 100) * 0.55;
+
+  const circle = document.createElementNS(SVG_NS, "circle");
+  circle.setAttribute("cx", x);
+  circle.setAttribute("cy", y);
+  circle.setAttribute("r", r);
+  circle.setAttribute("opacity", opacity);
+  g.appendChild(circle);
+
+  const text = document.createElementNS(SVG_NS, "text");
+  text.setAttribute("x", x);
+  text.setAttribute("y", y);
+  text.setAttribute("text-anchor", "middle");
+  text.setAttribute("dominant-baseline", "middle");
+  text.textContent = name.length > 5 ? name.slice(0, 5) + "…" : name;
+  g.appendChild(text);
+
+  svg.appendChild(g);
+}
+
+function drawGhostEdge(svg, x1, y1, x2, y2, influence) {
+  const g = document.createElementNS(SVG_NS, "g");
+  g.setAttribute("class", "enishi-edge ghost");
+
+  const line = document.createElementNS(SVG_NS, "line");
+  line.setAttribute("x1", x1);
+  line.setAttribute("y1", y1);
+  line.setAttribute("x2", x2);
+  line.setAttribute("y2", y2);
+  line.setAttribute("opacity", 0.25 + (influence / 100) * 0.45);
+  g.appendChild(line);
+
+  svg.insertBefore(g, svg.firstChild);
+}
+
+function showInfluenceDetail(inf) {
+  const detail = document.getElementById("enishi-detail");
+  const memoryItems = inf.memories
+    .map(
+      (m) =>
+        `<div class="memory-item">${escapeHtml(m.content)}<br /><span class="memory-emotion">${escapeHtml(m.meaning || "-")}(影響度 ${m.influence})</span></div>`
+    )
+    .join("");
+  detail.innerHTML = `
+    <h3>${escapeHtml(inf.whoOrWhat)}</h3>
+    <p class="hint">まだ会話はしていない・キャラクターとしては存在しない、過去の出会いや経験です。影響度: ${inf.influence}/100</p>
+    <div class="score-side-label">関連する出来事</div>
+    ${memoryItems}
+  `;
+}
+
 function showEnishiMessage(message) {
   document.getElementById("enishi-detail").innerHTML = `<p class="hint">${escapeHtml(message)}</p>`;
 }
@@ -583,15 +670,20 @@ async function showPersonDetail(personalityId) {
   const p = await api(`/personalities/${personalityId}`);
   const detail = document.getElementById("enishi-detail");
   const memoryItems = (p.memories || [])
-    .map((m) => `<div class="memory-item">${escapeHtml(m.content)}<br /><span class="memory-emotion">意味づけ: ${escapeHtml(m.meaning || "-")}</span></div>`)
-    .join("") || '<p class="hint">Memoryは未登録です</p>';
+    .slice()
+    .sort((a, b) => (b.influence ?? 50) - (a.influence ?? 50))
+    .map(
+      (m) =>
+        `<div class="memory-item">${m.who_or_what ? `<span class="memory-who-tag">${escapeHtml(m.who_or_what)}</span> ` : ""}${escapeHtml(m.content)}<br /><span class="memory-emotion">${escapeHtml(m.meaning || "-")}(影響度 ${m.influence ?? 50})</span></div>`
+    )
+    .join("") || '<p class="hint">まだ出会い・経験は登録されていません</p>';
 
   detail.innerHTML = `
     <h3>${escapeHtml(p.name)}</h3>
-    <div class="c-field"><div class="c-field-label">Console</div><div class="c-field-value">${escapeHtml(p.console || "-")}</div></div>
-    <div class="c-field"><div class="c-field-label">Belief</div><div class="c-field-value">${escapeHtml(p.belief || "-")}</div></div>
-    <div class="c-field"><div class="c-field-label">Bias</div><div class="c-field-value">${escapeHtml(p.bias || "-")}</div></div>
-    <div class="score-side-label">Memory</div>
+    <div class="c-field"><div class="c-field-label">今の気持ち・迷い</div><div class="c-field-value">${escapeHtml(p.console || "-")}</div></div>
+    <div class="c-field"><div class="c-field-label">大事にしていること</div><div class="c-field-value">${escapeHtml(p.belief || "-")}</div></div>
+    <div class="c-field"><div class="c-field-label">考え方のクセ</div><div class="c-field-value">${escapeHtml(p.bias || "-")}</div></div>
+    <div class="score-side-label">これまでの出会いと経験</div>
     ${memoryItems}
   `;
 }
@@ -624,8 +716,8 @@ async function showRelationshipDetail(centerId, counterpartId, counterpartName, 
   detail.innerHTML = `
     <h3>${escapeHtml(centerName)} ⇌ ${escapeHtml(counterpartName)}</h3>
     <p class="hint">同じ関係でも、双方の主観によってスコアと記憶は異なります(非対称)</p>
-    ${scoreBlock(pair.aToB, `${centerName}から見た縁`)}
-    ${scoreBlock(pair.bToA, `${counterpartName}から見た縁`)}
+    ${scoreBlock(pair.aToB, `${centerName}から見たつながり`)}
+    ${scoreBlock(pair.bToA, `${counterpartName}から見たつながり`)}
     <div class="score-side-label">${centerName}の主観的記憶</div>
     ${memoryBlock(pair.memoriesA, centerName)}
     <div class="score-side-label">${counterpartName}の主観的記憶</div>

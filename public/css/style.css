@@ -89,9 +89,38 @@ input[type="text"], input[type="number"], textarea, select {
 textarea { resize: vertical; }
 
 .memory-section { margin-bottom: 16px; }
-.memory-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: flex-start; }
-.memory-row input { flex: 1; }
+.memory-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+  align-items: center;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+}
+.memory-row input[type="text"] { flex: 1 1 160px; min-width: 120px; }
 .memory-row button { flex-shrink: 0; }
+.memory-influence-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.memory-influence-row input[type="range"] { width: 90px; }
+.memory-influence-value { min-width: 24px; text-align: right; font-weight: 600; color: var(--accent); }
+.memory-who-tag {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
 
 button {
   padding: 8px 16px;
@@ -192,6 +221,16 @@ button.danger { background: var(--panel); color: var(--danger); border-color: va
 .enishi-edge line { stroke: var(--border); stroke-width: 2px; cursor: pointer; }
 .enishi-edge line:hover { stroke: var(--accent); }
 .enishi-edge text { font-size: 10px; fill: var(--muted); pointer-events: none; }
+
+.enishi-node.ghost circle {
+  fill: var(--panel);
+  stroke: var(--muted);
+  stroke-width: 1.5px;
+  stroke-dasharray: 4 3;
+}
+.enishi-node.ghost text { fill: var(--muted); font-size: 11px; }
+.enishi-node.ghost:hover circle { stroke: var(--accent); }
+.enishi-edge.ghost line { stroke: var(--muted); stroke-width: 1.5px; stroke-dasharray: 3 4; cursor: default; }
 
 .enishi-detail {
   background: var(--panel);
