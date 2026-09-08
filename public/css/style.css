@@ -1,12 +1,12 @@
 :root {
-  --bg: #faf9f7;
+  --bg: #ffffff;
   --panel: #ffffff;
-  --border: #e4e0da;
-  --text: #2a2622;
-  --muted: #7a7268;
-  --accent: #d9331f;
-  --accent-soft: #fbe1dc;
-  --danger: #b3423a;
+  --border: #e2e2e2;
+  --text: #121212;
+  --muted: #9e9e9e;
+  --accent: #e6371b;
+  --accent-soft: #f2f2f2;
+  --danger: #e6371b;
 }
 
 * { box-sizing: border-box; }
@@ -180,7 +180,7 @@ button.danger { background: var(--panel); color: var(--danger); border-color: va
   border: 1px solid var(--border);
 }
 .bubble.speaker-a { align-self: flex-start; background: var(--accent-soft); }
-.bubble.speaker-b { align-self: flex-end; background: #eef2f4; }
+.bubble.speaker-b { align-self: flex-end; background: #efefef; }
 .bubble .speaker-name { font-size: 12px; color: var(--muted); margin-bottom: 4px; font-weight: 600; }
 
 .c-timeline { display: flex; flex-direction: column; gap: 16px; }
@@ -307,7 +307,7 @@ button.danger { background: var(--panel); color: var(--danger); border-color: va
   border-radius: 14px;
   border: 1px solid var(--border);
 }
-.c-chat-bubble.role-user { align-self: flex-end; background: #eef2f4; }
+.c-chat-bubble.role-user { align-self: flex-end; background: #efefef; }
 .c-chat-bubble.role-c { align-self: flex-start; background: var(--accent-soft); }
 .c-chat-bubble .c-chat-role { font-size: 11px; color: var(--muted); font-weight: 600; margin-bottom: 4px; }
 
