@@ -11,6 +11,10 @@ os.makedirs(DATA_DIR, exist_ok=True)
 _conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 _conn.row_factory = sqlite3.Row
 _conn.execute("PRAGMA foreign_keys = ON")
+# WALモード: 複数プロセス(本番はgunicornの複数ワーカー)から同時にアクセスしても、
+# 読み取りが書き込みをブロックしにくくなり、"database is locked" が起きにくくなる。
+_conn.execute("PRAGMA journal_mode = WAL")
+_conn.execute("PRAGMA busy_timeout = 5000")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS personalities (

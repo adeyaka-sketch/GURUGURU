@@ -27,7 +27,12 @@ header {
 header h1 { margin: 0; font-size: 28px; letter-spacing: 0.02em; }
 .subtitle { color: var(--muted); margin: 4px 0 16px; }
 
-nav { display: flex; gap: 4px; }
+nav {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
 
 .tab-btn {
   padding: 10px 18px;
@@ -38,6 +43,8 @@ nav { display: flex; gap: 4px; }
   cursor: pointer;
   border-radius: 8px 8px 0 0;
   font-size: 14px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .tab-btn.active {
@@ -448,4 +455,30 @@ header { position: relative; }
   margin: 6px 0 0;
   color: var(--text);
   line-height: 1.7;
+}
+
+/* ---------- スマホ幅対応 ---------- */
+@media (max-width: 768px) {
+  header { padding: 16px 16px 0; }
+  header h1 { font-size: 22px; }
+  main { padding: 16px 16px 40px; }
+
+  .panel-grid { grid-template-columns: 1fr; }
+  .enishi-layout { grid-template-columns: 1fr; }
+
+  .dialogue-form {
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+  .dialogue-form label { margin-bottom: 10px; }
+
+  .billing-badge {
+    position: static;
+    display: inline-block;
+    margin-top: 10px;
+  }
+
+  .bubble, .c-chat-bubble { max-width: 88%; }
+
+  .paywall-card { padding: 24px 20px; }
 }

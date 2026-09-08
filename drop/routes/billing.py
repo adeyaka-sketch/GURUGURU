@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 
 from flask import Blueprint, jsonify, redirect, request, session
 
@@ -22,6 +23,25 @@ from ..billing import (
 )
 
 bp = Blueprint("billing", __name__)
+
+
+def _period_end_text(subscription):
+    """
+    current_period_end は、Stripeのアカウント/APIバージョンによって
+    Subscription直下にある場合と、items.data[0]配下にある場合がある。
+    両方に対応し、日本語の日付文字列にして返す(取得できなければNone)。
+    """
+    timestamp = None
+    try:
+        timestamp = subscription["current_period_end"]
+    except (KeyError, TypeError):
+        try:
+            timestamp = subscription["items"]["data"][0]["current_period_end"]
+        except (KeyError, IndexError, TypeError):
+            timestamp = None
+    if not timestamp:
+        return None
+    return datetime.utcfromtimestamp(timestamp).strftime("%Y年%m月%d日")
 
 
 @bp.get("/api/billing/status")
@@ -158,6 +178,79 @@ def redeem():
         return jsonify({"error": "コードが無効か、有効期限が切れています。"}), 400
     session["access_code"] = code
     return jsonify({"ok": True})
+
+
+@bp.post("/api/billing/cancel")
+def cancel_subscription():
+    """
+    サブスクリプションを解約する(ユーザー自身の操作で完結させる自己解約フロー)。
+    即時停止ではなく、現在のお支払い期間の終了時に自動更新を止める(cancel_at_period_end)。
+    期間終了時にStripeから届く customer.subscription.deleted / updated Webhookで、
+    access_codes.status が実際に "cancelled" に更新される。
+    """
+    if not stripe_enabled():
+        return jsonify({"error": "課金機能はまだ設定されていません。"}), 400
+
+    code = session.get("access_code")
+    if not code or not is_paid_session():
+        return jsonify({"error": "有料プランに加入していません。"}), 400
+
+    row = get_access_code(code)
+    subscription_id = row["stripe_subscription_id"] if row else ""
+    if not subscription_id:
+        return jsonify({"error": "サブスクリプション情報が見つかりませんでした。お手数ですが運営までお問い合わせください。"}), 400
+
+    stripe = get_stripe()
+    try:
+        subscription = stripe.Subscription.modify(subscription_id, cancel_at_period_end=True)
+        period_end = _period_end_text(subscription)
+        return jsonify({"ok": True, "cancelAtPeriodEnd": True, "periodEnd": period_end})
+    except Exception as err:  # noqa: BLE001
+        return jsonify({"error": str(err)}), 500
+
+
+@bp.post("/api/billing/resume")
+def resume_subscription():
+    """解約予約(cancel_at_period_end)を取り消し、自動更新を再開する。"""
+    if not stripe_enabled():
+        return jsonify({"error": "課金機能はまだ設定されていません。"}), 400
+
+    code = session.get("access_code")
+    if not code or not is_paid_session():
+        return jsonify({"error": "有料プランに加入していません。"}), 400
+
+    row = get_access_code(code)
+    subscription_id = row["stripe_subscription_id"] if row else ""
+    if not subscription_id:
+        return jsonify({"error": "サブスクリプション情報が見つかりませんでした。"}), 400
+
+    stripe = get_stripe()
+    try:
+        stripe.Subscription.modify(subscription_id, cancel_at_period_end=False)
+        return jsonify({"ok": True})
+    except Exception as err:  # noqa: BLE001
+        return jsonify({"error": str(err)}), 500
+
+
+@bp.get("/api/billing/subscription")
+def subscription_detail():
+    """現在の契約が解約予約済みかどうかを、Stripe側の最新状態から返す(UI表示用)。"""
+    code = session.get("access_code")
+    if not code or not is_paid_session() or not stripe_enabled():
+        return jsonify({"cancelAtPeriodEnd": False, "periodEnd": None})
+
+    row = get_access_code(code)
+    subscription_id = row["stripe_subscription_id"] if row else ""
+    if not subscription_id:
+        return jsonify({"cancelAtPeriodEnd": False, "periodEnd": None})
+
+    stripe = get_stripe()
+    try:
+        subscription = stripe.Subscription.retrieve(subscription_id)
+        period_end = _period_end_text(subscription)
+        return jsonify({"cancelAtPeriodEnd": bool(subscription.cancel_at_period_end), "periodEnd": period_end})
+    except Exception:  # noqa: BLE001
+        return jsonify({"cancelAtPeriodEnd": False, "periodEnd": None})
 
 
 @bp.post("/api/billing/webhook")

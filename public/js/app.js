@@ -846,8 +846,62 @@ async function loadSceneHistory(personalityAId, personalityBId) {
 function showPaywall(mode = "plan") {
   document.getElementById("paywall-plan-view").style.display = mode === "plan" ? "block" : "none";
   document.getElementById("paywall-usage-view").style.display = mode === "usage" ? "block" : "none";
+  document.getElementById("paywall-account-view").style.display = mode === "account" ? "block" : "none";
   document.getElementById("paywall-status").textContent = "";
   document.getElementById("paywall-overlay").style.display = "flex";
+}
+
+async function openAccountView() {
+  showPaywall("account");
+  const body = document.getElementById("paywall-account-body");
+  body.innerHTML = '<p class="hint">読み込み中...</p>';
+  try {
+    const detail = await api("/billing/subscription");
+    renderAccountView(detail);
+  } catch (err) {
+    body.innerHTML = `<p class="hint">${escapeHtml(err.message)}</p>`;
+  }
+}
+
+function renderAccountView(detail) {
+  const body = document.getElementById("paywall-account-body");
+  const statusEl = document.getElementById("paywall-status");
+  statusEl.textContent = "";
+
+  if (detail.cancelAtPeriodEnd) {
+    body.innerHTML = `
+      <p>GURUGURU Standard(月額980円)にご加入中です。</p>
+      <p class="hint">解約手続き済みです。${escapeHtml(detail.periodEnd || "")}までは、このまま有料機能をお使いいただけます。それ以降は自動更新されません。</p>
+      <button type="button" id="paywall-resume-btn" class="secondary">解約を取り消して継続する</button>
+    `;
+    document.getElementById("paywall-resume-btn").addEventListener("click", async () => {
+      statusEl.textContent = "処理しています...";
+      try {
+        await api("/billing/resume", { method: "POST", body: JSON.stringify({}) });
+        statusEl.textContent = "解約を取り消しました。";
+        await openAccountView();
+      } catch (err) {
+        statusEl.textContent = err.message;
+      }
+    });
+  } else {
+    body.innerHTML = `
+      <p>GURUGURU Standard(月額980円)にご加入中です。</p>
+      <p class="hint">解約すると、現在のお支払い期間の終了日(${escapeHtml(detail.periodEnd || "次回更新日")})をもって自動更新が止まります。それまでは、このまま有料機能をお使いいただけます。日割りの返金はありません。</p>
+      <button type="button" id="paywall-cancel-btn" class="danger">サブスクリプションを解約する</button>
+    `;
+    document.getElementById("paywall-cancel-btn").addEventListener("click", async () => {
+      if (!confirm("本当に解約しますか?")) return;
+      statusEl.textContent = "処理しています...";
+      try {
+        const result = await api("/billing/cancel", { method: "POST", body: JSON.stringify({}) });
+        statusEl.textContent = `解約手続きが完了しました。${result.periodEnd}まではご利用いただけます。`;
+        await openAccountView();
+      } catch (err) {
+        statusEl.textContent = err.message;
+      }
+    });
+  }
 }
 
 function hidePaywall() {
@@ -867,9 +921,15 @@ async function refreshBillingBadge() {
     if (status.paid && status.usage) {
       badge.textContent = `有料プラン利用中(今月 ${status.usage.usageCount}/${status.usage.monthlyLimit}${status.usage.bonusCredits ? ` +追加${status.usage.bonusCredits}` : ""})`;
       badge.classList.add("paid");
+      badge.style.cursor = "pointer";
+      badge.title = "クリックしてご契約状況を確認・解約";
+      badge.onclick = openAccountView;
     } else {
       badge.textContent = `未加入(¥${status.priceJpy}/月)`;
       badge.classList.remove("paid");
+      badge.style.cursor = "pointer";
+      badge.title = "";
+      badge.onclick = () => showPaywall("plan");
     }
   } catch (err) {
     // 起動直後などで失敗しても致命的ではないので無視
