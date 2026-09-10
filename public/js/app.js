@@ -141,6 +141,10 @@ function fillPersonalitySelects() {
     "scene-personality-a",
     "scene-personality-b",
   ];
+  // "b"側のセレクトは、初期状態で"a"側と同じ個性が選ばれてしまうと
+  // 「個性Aと個性Bは異なる個性を選んでください」エラーに初回で当たるため、
+  // 未選択時は2番目の個性をデフォルトにする
+  const bIds = new Set(["d-personality-b", "c-personality-b", "scene-personality-b"]);
   selects.forEach((id) => {
     const select = document.getElementById(id);
     const current = select.value;
@@ -151,7 +155,11 @@ function fillPersonalitySelects() {
       opt.textContent = p.name;
       select.appendChild(opt);
     });
-    if (current) select.value = current;
+    if (current) {
+      select.value = current;
+    } else if (bIds.has(id) && state.personalities.length > 1) {
+      select.value = state.personalities[1].id;
+    }
   });
 }
 
@@ -169,6 +177,7 @@ async function selectPersonality(id) {
   document.getElementById("p-voice-rhythm").value = p.voice_rhythm || "";
   document.getElementById("p-deflection").value = p.deflection || "";
   document.getElementById("p-sensory-anchor").value = p.sensory_anchor || "";
+  document.getElementById("p-is-public").checked = Boolean(p.is_public);
   renderMemoryRows(p.memories || []);
   document.getElementById("delete-personality-btn").style.display = "inline-block";
   document.getElementById("import-log-section").style.display = "block";
@@ -250,6 +259,7 @@ document.getElementById("personality-form").addEventListener("submit", async (e)
     voiceRhythm: document.getElementById("p-voice-rhythm").value,
     deflection: document.getElementById("p-deflection").value,
     sensoryAnchor: document.getElementById("p-sensory-anchor").value,
+    isPublic: document.getElementById("p-is-public").checked,
     memories,
   };
 

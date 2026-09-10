@@ -128,11 +128,12 @@ def checkout_cancel():
 
 @bp.post("/api/billing/topup-checkout")
 def create_topup_checkout():
-    """追加クレジット(¥500で30回分)の購入。既に有料会員であることが前提。"""
+    """
+    追加クレジット(¥500で30回分)の購入。月額プラン未加入でも単体で購入できる
+    (未加入者は topup-success 時に、月間基本枠0のアクセスコードが新規発行される)。
+    """
     if not stripe_enabled():
         return jsonify({"error": "課金機能はまだ設定されていません。"}), 400
-    if not is_paid_session():
-        return jsonify({"error": "先に月額プランへの加入が必要です。"}), 402
 
     stripe = get_stripe()
     base_url = request.host_url.rstrip("/")
@@ -151,15 +152,33 @@ def create_topup_checkout():
 @bp.get("/billing/topup-success")
 def topup_success():
     session_id = request.args.get("session_id")
-    code = session.get("access_code")
-    if not session_id or not code:
-        return "決済情報、またはログイン状態が見つかりません。", 400
+    if not session_id:
+        return "決済情報が見つかりません。", 400
 
     stripe = get_stripe()
     try:
         checkout_session = stripe.checkout.Session.retrieve(session_id)
-        if checkout_session.payment_status == "paid":
-            add_bonus_credits(code, TOPUP_CREDITS)
+        if checkout_session.payment_status != "paid":
+            return "決済が完了していません。", 400
+
+        code = session.get("access_code")
+        row = get_access_code(code) if code else None
+        code_notice = ""
+        if not row:
+            # 月額プラン未加入での単体購入: 月間基本枠0のアクセスコードを新規発行し、
+            # 購入したクレジット分だけ使えるようにする
+            email = checkout_session.customer_details.email if checkout_session.customer_details else ""
+            customer_id = checkout_session.customer
+            code = create_access_code(email, customer_id or "", "", monthly_limit=0)
+            session["access_code"] = code
+            code_notice = f"""
+            <p>このブラウザでは、もう追加クレジット分が使えます。別のブラウザ・端末で使う場合は、
+            下記のアクセスコードを保管して「コードを入力」欄に貼り付けてください。</p>
+            <div style="background:#f2e3d5;padding:16px;border-radius:8px;font-size:20px;font-weight:bold;
+              text-align:center;letter-spacing:0.05em">{code}</div>
+            """
+
+        add_bonus_credits(code, TOPUP_CREDITS)
 
         return f"""
         <html><head><meta charset="utf-8"><title>追加クレジット購入完了</title>
@@ -167,6 +186,7 @@ def topup_success():
         </head><body>
         <h2>追加クレジットを購入しました</h2>
         <p>{TOPUP_CREDITS}回分のAI呼び出し枠が追加されました。</p>
+        {code_notice}
         <p><a href="/">アプリに戻る</a></p>
         </body></html>
         """

@@ -2,10 +2,11 @@ from datetime import date
 
 from flask import Blueprint, jsonify, request
 
-from ..billing import require_paid_access
+from ..billing import current_creator_id, require_paid_access
 from ..claude_client import respond_with_reflection
 from ..db import execute, query, query_one
 from ..prompt_builder import build_personality_prompt
+from .personalities import is_personality_visible
 
 bp = Blueprint("dialogue", __name__, url_prefix="/api/dialogue")
 MAX_TURNS = 8
@@ -72,6 +73,9 @@ def start_dialogue():
     turn_count = min(max(int(body.get("turns") or 4), 1), MAX_TURNS)
 
     if not personality_a or not personality_b:
+        return jsonify({"error": "personalityAId / personalityBId が不正です"}), 400
+    requester_id = current_creator_id() or ""
+    if not is_personality_visible(personality_a, requester_id) or not is_personality_visible(personality_b, requester_id):
         return jsonify({"error": "personalityAId / personalityBId が不正です"}), 400
     if not topic:
         return jsonify({"error": "問い(topic)は必須です"}), 400

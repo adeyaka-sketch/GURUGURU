@@ -2,6 +2,7 @@ import functools
 import os
 import secrets
 import string
+import uuid
 from datetime import datetime
 
 from flask import jsonify, session
@@ -49,12 +50,20 @@ def generate_access_code():
     return f"GURUGURU-{chunk()}-{chunk()}"
 
 
-def create_access_code(email, stripe_customer_id="", stripe_subscription_id=""):
+def create_access_code(email, stripe_customer_id="", stripe_subscription_id="", monthly_limit=None):
+    """
+    アクセスコードを新規発行する。月額サブスク加入時は monthly_limit を省略して
+    デフォルト(DEFAULT_MONTHLY_LIMIT)を使う。追加クレジット単体購入(サブスク未加入)の
+    場合は monthly_limit=0 を渡し、無料の月間基本枠を持たせず購入したクレジット分だけ
+    使えるようにする。
+    """
     code = generate_access_code()
+    if monthly_limit is None:
+        monthly_limit = DEFAULT_MONTHLY_LIMIT
     execute(
-        """INSERT INTO access_codes (code, email, stripe_customer_id, stripe_subscription_id, status)
-           VALUES (?, ?, ?, ?, 'active')""",
-        (code, email, stripe_customer_id, stripe_subscription_id),
+        """INSERT INTO access_codes (code, email, stripe_customer_id, stripe_subscription_id, status, monthly_limit)
+           VALUES (?, ?, ?, ?, 'active', ?)""",
+        (code, email, stripe_customer_id, stripe_subscription_id, monthly_limit),
     )
     return code
 
@@ -74,9 +83,19 @@ def set_access_code_status(subscription_id, status):
     )
 
 
+def get_anon_id():
+    """未加入セッションでも安定した識別子を持てるよう、ブラウザごとの匿名IDをCookieに保持する。
+    個人情報は含まない。アクセス解析(drop/routes/analytics.py)とも共有する。"""
+    if "anon_id" not in session:
+        session["anon_id"] = uuid.uuid4().hex[:12]
+        session.modified = True
+    return session["anon_id"]
+
+
 def current_creator_id():
-    """このブラウザセッションを一意に識別するID(=支払い済みアクセスコード)。作成者タグに使う。"""
-    return session.get("access_code")
+    """このブラウザセッションを一意に識別するID。作成者タグに使う。
+    有料会員はアクセスコード、未加入者(無料お試し含む)は匿名IDを使う。"""
+    return session.get("access_code") or get_anon_id()
 
 
 def is_paid_session():

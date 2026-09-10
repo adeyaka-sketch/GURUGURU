@@ -1,19 +1,11 @@
 import os
-import uuid
 
-from flask import Blueprint, jsonify, request, session
+from flask import Blueprint, jsonify, request
 
+from ..billing import get_anon_id
 from ..db import execute, query
 
 bp = Blueprint("analytics", __name__, url_prefix="/api")
-
-
-def _anon_id():
-    """このブラウザを識別するための匿名ID(Cookieに保持、個人情報は含まない)。"""
-    if "anon_id" not in session:
-        session["anon_id"] = uuid.uuid4().hex[:12]
-        session.modified = True
-    return session["anon_id"]
 
 
 @bp.post("/track")
@@ -24,7 +16,7 @@ def track():
     referrer = (body.get("referrer") or "").strip()[:300]
     execute(
         "INSERT INTO events (event_name, path, referrer, session_id) VALUES (?, ?, ?, ?)",
-        (event_name, path, referrer, _anon_id()),
+        (event_name, path, referrer, get_anon_id()),
     )
     return jsonify({"ok": True})
 

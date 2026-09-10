@@ -1,8 +1,9 @@
 from flask import Blueprint, jsonify, request
 
-from ..billing import require_paid_access
+from ..billing import current_creator_id, require_paid_access
 from ..claude_client import respond_as_personality
 from ..db import execute, query, query_one
+from .personalities import is_personality_visible
 
 bp = Blueprint("scenes", __name__, url_prefix="/api/scenes")
 
@@ -120,6 +121,9 @@ def generate_scene():
     dialogue_id = body.get("dialogueId")
 
     if not personality_a or not personality_b:
+        return jsonify({"error": "personalityAId / personalityBId が不正です"}), 400
+    requester_id = current_creator_id() or ""
+    if not is_personality_visible(personality_a, requester_id) or not is_personality_visible(personality_b, requester_id):
         return jsonify({"error": "personalityAId / personalityBId が不正です"}), 400
     if not situation:
         return jsonify({"error": "situation(場面の状況)は必須です"}), 400

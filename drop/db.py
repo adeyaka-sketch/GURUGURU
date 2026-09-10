@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS personalities (
   sensory_anchor TEXT DEFAULT '',
   created_by TEXT DEFAULT '',
   is_sample INTEGER DEFAULT 0,
+  is_public INTEGER DEFAULT 0,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))
 );
@@ -189,6 +190,7 @@ def _migrate():
         "sensory_anchor": "TEXT DEFAULT ''",
         "created_by": "TEXT DEFAULT ''",
         "is_sample": "INTEGER DEFAULT 0",
+        "is_public": "INTEGER DEFAULT 0",
     }
     for col, decl in personality_new_cols.items():
         if col not in personality_cols:

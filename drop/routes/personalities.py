@@ -32,6 +32,19 @@ def get_full_personality(personality_id):
     return result
 
 
+def is_personality_visible(row, requester_id):
+    """
+    見本(is_sample)、公開設定(is_public)、本人作成分のいずれかなら見える。
+    created_byが空の個性(課金導入前からあるもの)は、これまで通り誰にでも見える。
+    """
+    if row["is_sample"] or row["is_public"]:
+        return True
+    created_by = row["created_by"]
+    if not created_by:
+        return True
+    return created_by == requester_id
+
+
 def insert_memories(personality_id, memories):
     if not isinstance(memories, list):
         return
@@ -58,15 +71,18 @@ def insert_memories(personality_id, memories):
 
 @bp.get("")
 def list_personalities():
+    requester_id = current_creator_id() or ""
     rows = query("SELECT * FROM personalities ORDER BY created_at DESC")
-    return jsonify([dict(r) for r in rows])
+    visible = [dict(r) for r in rows if is_personality_visible(r, requester_id)]
+    return jsonify(visible)
 
 
 @bp.get("/<int:personality_id>")
 def get_personality(personality_id):
-    result = get_full_personality(personality_id)
-    if not result:
+    row = query_one("SELECT * FROM personalities WHERE id = ?", (personality_id,))
+    if not row or not is_personality_visible(row, current_creator_id() or ""):
         return jsonify({"error": "not found"}), 404
+    result = get_full_personality(personality_id)
     return jsonify(result)
 
 
@@ -79,8 +95,9 @@ def create_personality():
 
     cur = execute(
         """INSERT INTO personalities
-           (name, console, belief, emotion, bias, voice_rhythm, deflection, sensory_anchor, created_by, is_sample)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+           (name, console, belief, emotion, bias, voice_rhythm, deflection, sensory_anchor,
+            created_by, is_sample, is_public)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             name,
             body.get("console") or "",
@@ -92,6 +109,7 @@ def create_personality():
             body.get("sensoryAnchor") or "",
             current_creator_id() or "",
             1 if body.get("isSample") else 0,
+            1 if body.get("isPublic") else 0,
         ),
     )
     personality_id = cur.lastrowid
@@ -101,14 +119,20 @@ def create_personality():
 
 @bp.put("/<int:personality_id>")
 def update_personality(personality_id):
-    existing = query_one("SELECT id FROM personalities WHERE id = ?", (personality_id,))
+    existing = query_one("SELECT created_by, is_sample FROM personalities WHERE id = ?", (personality_id,))
     if not existing:
         return jsonify({"error": "not found"}), 404
+    if existing["is_sample"]:
+        return jsonify({"error": "これは見本の個性のため編集できません。"}), 403
+    # created_by が設定されている(=課金導入後に作られた)個性は、作成者本人だけが編集できる。
+    # 課金導入前からある個性(created_byが空)は、これまで通り誰でも編集できる。
+    if existing["created_by"] and existing["created_by"] != (current_creator_id() or ""):
+        return jsonify({"error": "この個性はあなたが作成したものではないため編集できません。"}), 403
 
     body = request.get_json(force=True) or {}
     execute(
         """UPDATE personalities SET name = ?, console = ?, belief = ?, emotion = ?, bias = ?,
-           voice_rhythm = ?, deflection = ?, sensory_anchor = ?,
+           voice_rhythm = ?, deflection = ?, sensory_anchor = ?, is_public = ?,
            updated_at = datetime('now') WHERE id = ?""",
         (
             body.get("name") or "",
@@ -119,6 +143,7 @@ def update_personality(personality_id):
             body.get("voiceRhythm") or "",
             body.get("deflection") or "",
             body.get("sensoryAnchor") or "",
+            1 if body.get("isPublic") else 0,
             personality_id,
         ),
     )
