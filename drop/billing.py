@@ -15,6 +15,10 @@ DEFAULT_MONTHLY_LIMIT = 50
 TOPUP_JPY = 500
 TOPUP_CREDITS = 30
 
+# 未加入の訪問者でも、「会話させる」→「生まれた子を生み出す」の一連の流れを
+# 一度は無料で体験できるよう、生涯2回までの無料お試し枠を設ける。
+FREE_TRIAL_LIMIT = 2
+
 
 def stripe_enabled():
     return bool(os.environ.get("STRIPE_SECRET_KEY"))
@@ -149,8 +153,24 @@ def add_bonus_credits(code, amount):
     )
 
 
+def free_trial_remaining():
+    """未加入セッションの、無料お試し残り回数(セッションCookieに保持)。"""
+    used = session.get("free_trial_count", 0)
+    return max(0, FREE_TRIAL_LIMIT - used)
+
+
+def _consume_free_trial():
+    used = session.get("free_trial_count", 0)
+    if used >= FREE_TRIAL_LIMIT:
+        return False
+    session["free_trial_count"] = used + 1
+    session.modified = True
+    return True
+
+
 def require_paid_access(view_func):
-    """このAPIはClaude呼び出しなど実費が発生するため、有料アクセスコード+利用枠が必要。"""
+    """このAPIはClaude呼び出しなど実費が発生するため、有料アクセスコード+利用枠、
+    または未加入者向けの無料お試し枠のいずれかが必要。"""
 
     @functools.wraps(view_func)
     def wrapper(*args, **kwargs):
@@ -159,29 +179,32 @@ def require_paid_access(view_func):
             return view_func(*args, **kwargs)
 
         code = session.get("access_code")
-        if not code or not is_paid_session():
-            return (
-                jsonify(
-                    {
-                        "error": "この機能は有料プラン(月額980円)が必要です。",
-                        "paywall": True,
-                    }
-                ),
-                402,
-            )
+        if code and is_paid_session():
+            if not consume_usage(code):
+                return (
+                    jsonify(
+                        {
+                            "error": f"今月のAI呼び出し上限({DEFAULT_MONTHLY_LIMIT}回)に達しました。"
+                            f"追加クレジット(¥{TOPUP_JPY}で{TOPUP_CREDITS}回分)を購入するか、翌月まで待ってください。",
+                            "usageExceeded": True,
+                        }
+                    ),
+                    429,
+                )
+            return view_func(*args, **kwargs)
 
-        if not consume_usage(code):
-            return (
-                jsonify(
-                    {
-                        "error": f"今月のAI呼び出し上限({DEFAULT_MONTHLY_LIMIT}回)に達しました。"
-                        f"追加クレジット(¥{TOPUP_JPY}で{TOPUP_CREDITS}回分)を購入するか、翌月まで待ってください。",
-                        "usageExceeded": True,
-                    }
-                ),
-                429,
-            )
+        if _consume_free_trial():
+            return view_func(*args, **kwargs)
 
-        return view_func(*args, **kwargs)
+        return (
+            jsonify(
+                {
+                    "error": "無料でお試しいただける回数(2回)を使い切りました。続きは有料プラン(月額980円)でご利用いただけます。",
+                    "paywall": True,
+                    "trialExhausted": True,
+                }
+            ),
+            402,
+        )
 
     return wrapper

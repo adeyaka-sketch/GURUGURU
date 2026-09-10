@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>アクセス解析 - GURUGURU</title>
+<link rel="stylesheet" href="css/style.css" />
+<style>
+  .stats-main { max-width: 960px; margin: 0 auto; padding: 32px 20px 80px; }
+  .stats-main h1 { font-size: 22px; margin-bottom: 24px; }
+  .stats-main h2 { font-size: 15px; margin: 36px 0 12px; color: var(--muted); }
+  .stats-back { display: inline-block; margin-bottom: 20px; color: var(--muted); font-size: 13px; }
+  .key-form { display: flex; gap: 8px; margin-bottom: 32px; max-width: 420px; }
+  .key-form input { flex: 1; margin-top: 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; }
+  .summary-cards { display: flex; gap: 16px; flex-wrap: wrap; }
+  .summary-card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 18px; min-width: 140px;
+  }
+  .summary-card .num { font-size: 22px; font-weight: 700; }
+  .summary-card .label { font-size: 12px; color: var(--muted); }
+  .hint { color: var(--muted); font-size: 13px; }
+  .path-cell { word-break: break-all; }
+</style>
+</head>
+<body>
+<header><h1 style="padding:24px 32px;margin:0;font-size:20px;">GURUGURU</h1></header>
+<main class="stats-main">
+  <a class="stats-back" href="/">← GURUGURUに戻る</a>
+  <h1>アクセス解析</h1>
+
+  <form class="key-form" id="key-form">
+    <input type="password" id="key-input" placeholder="管理キー(ADMIN_KEY)" autocomplete="off" />
+    <button type="submit">表示</button>
+  </form>
+
+  <div id="stats-body">
+    <p class="hint">管理キーを入力してください。</p>
+  </div>
+</main>
+
+<script>
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+async function loadStats(key) {
+  const body = document.getElementById("stats-body");
+  body.innerHTML = '<p class="hint">読み込み中...</p>';
+  try {
+    const res = await fetch(`/api/admin/stats?key=${encodeURIComponent(key)}`);
+    if (!res.ok) throw new Error("キーが正しくないか、まだデータがありません。");
+    const data = await res.json();
+    localStorage.setItem("gg_admin_key", key);
+    render(data);
+  } catch (err) {
+    body.innerHTML = `<p class="hint">${esc(err.message)}</p>`;
+  }
+}
+
+function render(data) {
+  const totalsByName = Object.fromEntries((data.totals || []).map(t => [t.event_name, t]));
+  const pv = totalsByName["pageview"] || { count: 0, unique_sessions: 0 };
+
+  const summaryHtml = `
+    <div class="summary-cards">
+      <div class="summary-card"><div class="num">${pv.count}</div><div class="label">総ページビュー</div></div>
+      <div class="summary-card"><div class="num">${pv.unique_sessions}</div><div class="label">ユニーク訪問者(累計)</div></div>
+      ${(data.totals || []).filter(t => t.event_name !== "pageview").map(t => `
+        <div class="summary-card"><div class="num">${t.count}</div><div class="label">${esc(t.event_name)}</div></div>
+      `).join("")}
+    </div>
+  `;
+
+  const dailyHtml = `
+    <h2>日別ページビュー(直近30日)</h2>
+    <table>
+      <tr><th>日付</th><th>PV</th><th>ユニーク</th></tr>
+      ${(data.daily || []).map(d => `<tr><td>${esc(d.day)}</td><td>${d.count}</td><td>${d.unique_sessions}</td></tr>`).join("") || '<tr><td colspan="3" class="hint">データなし</td></tr>'}
+    </table>
+  `;
+
+  const pathsHtml = `
+    <h2>よく見られているタブ・画面</h2>
+    <table>
+      <tr><th>path</th><th>PV</th></tr>
+      ${(data.topPaths || []).map(p => `<tr><td class="path-cell">${esc(p.path)}</td><td>${p.count}</td></tr>`).join("") || '<tr><td colspan="2" class="hint">データなし</td></tr>'}
+    </table>
+  `;
+
+  const referrersHtml = `
+    <h2>流入元(リファラー)</h2>
+    <table>
+      <tr><th>referrer</th><th>PV</th></tr>
+      ${(data.topReferrers || []).map(r => `<tr><td class="path-cell">${esc(r.referrer)}</td><td>${r.count}</td></tr>`).join("") || '<tr><td colspan="2" class="hint">データなし(直接アクセスのみ)</td></tr>'}
+    </table>
+  `;
+
+  const recentHtml = `
+    <h2>直近のイベント(最新100件)</h2>
+    <table>
+      <tr><th>時刻</th><th>event</th><th>path</th><th>referrer</th><th>session</th></tr>
+      ${(data.recent || []).map(r => `<tr><td>${esc(r.created_at)}</td><td>${esc(r.event_name)}</td><td class="path-cell">${esc(r.path)}</td><td class="path-cell">${esc(r.referrer)}</td><td>${esc(r.session_id)}</td></tr>`).join("") || '<tr><td colspan="5" class="hint">データなし</td></tr>'}
+    </table>
+  `;
+
+  document.getElementById("stats-body").innerHTML = summaryHtml + dailyHtml + pathsHtml + referrersHtml + recentHtml;
+}
+
+document.getElementById("key-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const key = document.getElementById("key-input").value.trim();
+  if (key) loadStats(key);
+});
+
+(function () {
+  try {
+    const saved = localStorage.getItem("gg_admin_key");
+    if (saved) {
+      document.getElementById("key-input").value = saved;
+      loadStats(saved);
+    }
+  } catch (err) {
+    // localStorageが使えなくても致命的ではない
+  }
+})();
+</script>
+</body>
+</html>

@@ -155,6 +155,15 @@ CREATE TABLE IF NOT EXISTS individuality_c (
   summary TEXT DEFAULT '',
   created_at TEXT DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_name TEXT NOT NULL,
+  path TEXT DEFAULT '',
+  referrer TEXT DEFAULT '',
+  session_id TEXT DEFAULT '',
+  created_at TEXT DEFAULT (datetime('now'))
+);
 """
 
 

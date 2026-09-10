@@ -435,6 +435,21 @@ header { position: relative; }
   color: var(--muted);
 }
 
+.demo-cta {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  text-align: center;
+  margin-bottom: 28px;
+}
+.demo-cta-label { font-size: 13px; color: var(--muted); margin: 0 0 10px; }
+.demo-cta button {
+  font-size: 16px;
+  padding: 12px 28px;
+}
+.demo-cta .hint { margin-top: 10px; }
+
 .guide-steps { padding-left: 20px; }
 .guide-steps li {
   background: var(--panel);

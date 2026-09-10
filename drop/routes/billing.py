@@ -5,11 +5,13 @@ from flask import Blueprint, jsonify, redirect, request, session
 
 from ..billing import (
     DEFAULT_MONTHLY_LIMIT,
+    FREE_TRIAL_LIMIT,
     PRICE_JPY,
     TOPUP_CREDITS,
     TOPUP_JPY,
     add_bonus_credits,
     create_access_code,
+    free_trial_remaining,
     get_access_code,
     get_access_code_by_subscription,
     get_price_id,
@@ -48,15 +50,18 @@ def _period_end_text(subscription):
 def status():
     code = session.get("access_code")
     usage = get_usage_status(code) if code else None
+    paid = is_paid_session()
     return jsonify(
         {
             "enabled": stripe_enabled(),
-            "paid": is_paid_session(),
+            "paid": paid,
             "priceJpy": PRICE_JPY,
             "monthlyLimit": DEFAULT_MONTHLY_LIMIT,
             "topupJpy": TOPUP_JPY,
             "topupCredits": TOPUP_CREDITS,
             "usage": usage,
+            "freeTrialLimit": FREE_TRIAL_LIMIT,
+            "freeTrialRemaining": None if paid else free_trial_remaining(),
         }
     )
 

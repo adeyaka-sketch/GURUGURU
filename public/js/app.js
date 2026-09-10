@@ -13,6 +13,7 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
     document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
     btn.classList.add("active");
     document.getElementById(`tab-${btn.dataset.tab}`).classList.add("active");
+    trackEvent("pageview", `tab:${btn.dataset.tab}`);
     if (btn.dataset.tab === "dialogue" || btn.dataset.tab === "individuality-c") {
       fillPersonalitySelects();
     }
@@ -39,6 +40,20 @@ function refreshSceneHistoryFromSelects() {
   document.getElementById(id).addEventListener("change", refreshSceneHistoryFromSelects);
 });
 
+// ---------- アクセス解析(サーバーのeventsテーブルに軽量に記録するだけ) ----------
+function trackEvent(event, path = "") {
+  try {
+    fetch("/api/track", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event, path, referrer: document.referrer || "" }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch (err) {
+    // 解析の失敗でアプリ本体を止めない
+  }
+}
+
 // ---------- API helpers ----------
 async function api(path, options = {}) {
   const res = await fetch(`/api${path}`, {
@@ -47,12 +62,13 @@ async function api(path, options = {}) {
   });
   if (res.status === 402) {
     const err = await res.json().catch(() => ({}));
-    showPaywall("plan");
+    trackEvent("paywall_shown", path);
+    showPaywall("plan", err.error);
     throw new Error(err.error || "この機能は有料プランが必要です。");
   }
   if (res.status === 429) {
     const err = await res.json().catch(() => ({}));
-    showPaywall("usage");
+    showPaywall("usage", err.error);
     throw new Error(err.error || "今月の利用上限に達しました。");
   }
   if (!res.ok) {
@@ -101,6 +117,18 @@ function openBornChild(aId, bId) {
   document.getElementById("c-personality-b").value = bId;
   document.getElementById("c-select-form").requestSubmit();
 }
+
+document.getElementById("demo-born-child-btn").addEventListener("click", () => {
+  trackEvent("demo_cta_clicked", "tab:guide");
+  // 名前で探すことで、環境によってIDが違っても(本番/ローカルなど)同じ実例を開ける
+  const a = state.personalities.find((p) => p.name.includes("神楽坂"));
+  const b = state.personalities.find((p) => p.name.includes("雛田"));
+  if (a && b) {
+    openBornChild(a.id, b.id);
+  } else {
+    document.querySelector('.tab-btn[data-tab="individuality-c"]').click();
+  }
+});
 
 function fillPersonalitySelects() {
   const selects = [
@@ -231,6 +259,7 @@ document.getElementById("personality-form").addEventListener("submit", async (e)
     } else {
       const created = await api("/personalities", { method: "POST", body: JSON.stringify(payload) });
       state.selectedPersonalityId = created.id;
+      trackEvent("character_created", "tab:profiles");
     }
     await loadPersonalities();
   } catch (err) {
@@ -385,6 +414,7 @@ document.getElementById("dialogue-form").addEventListener("submit", async (e) =>
     renderTranscript(result.transcript, personalityAId);
     statusEl.textContent = `対話が完了しました(${result.transcript.length}ターン)`;
     document.getElementById("generate-c-btn").style.display = "inline-block";
+    trackEvent("dialogue_started", "tab:dialogue");
   } catch (err) {
     statusEl.textContent = "";
     alert(err.message);
@@ -416,6 +446,7 @@ document.getElementById("generate-c-btn").addEventListener("click", async () => 
       method: "POST",
       body: JSON.stringify({ dialogueId: state.lastDialogueId }),
     });
+    trackEvent("born_child_created", "tab:dialogue");
     alert("あたらしい子が生まれました。「生まれた子」タブで確認できます。");
     await loadPersonalities();
   } catch (err) {
@@ -843,11 +874,11 @@ async function loadSceneHistory(personalityAId, personalityBId) {
 }
 
 // ---------- 課金(ペイウォール) ----------
-function showPaywall(mode = "plan") {
+function showPaywall(mode = "plan", message = "") {
   document.getElementById("paywall-plan-view").style.display = mode === "plan" ? "block" : "none";
   document.getElementById("paywall-usage-view").style.display = mode === "usage" ? "block" : "none";
   document.getElementById("paywall-account-view").style.display = mode === "account" ? "block" : "none";
-  document.getElementById("paywall-status").textContent = "";
+  document.getElementById("paywall-status").textContent = message || "";
   document.getElementById("paywall-overlay").style.display = "flex";
 }
 
@@ -924,6 +955,12 @@ async function refreshBillingBadge() {
       badge.style.cursor = "pointer";
       badge.title = "クリックしてご契約状況を確認・解約";
       badge.onclick = openAccountView;
+    } else if (status.freeTrialRemaining > 0) {
+      badge.textContent = `無料お試し残り${status.freeTrialRemaining}回(¥${status.priceJpy}/月)`;
+      badge.classList.remove("paid");
+      badge.style.cursor = "pointer";
+      badge.title = "";
+      badge.onclick = () => showPaywall("plan");
     } else {
       badge.textContent = `未加入(¥${status.priceJpy}/月)`;
       badge.classList.remove("paid");
@@ -941,6 +978,7 @@ document.getElementById("paywall-close-btn").addEventListener("click", hidePaywa
 document.getElementById("paywall-subscribe-btn").addEventListener("click", async () => {
   const statusEl = document.getElementById("paywall-status");
   statusEl.textContent = "決済ページを準備しています...";
+  trackEvent("checkout_started", "paywall");
   try {
     const { url } = await api("/billing/checkout", { method: "POST", body: JSON.stringify({}) });
     window.location.href = url;
@@ -987,3 +1025,4 @@ document.getElementById("paywall-redeem-btn").addEventListener("click", async ()
 resetPersonalityForm();
 loadPersonalities();
 refreshBillingBadge();
+trackEvent("pageview", "tab:guide");

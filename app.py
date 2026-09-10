@@ -6,6 +6,7 @@ from flask import Flask, send_from_directory
 load_dotenv()
 
 from drop.db import init_db  # noqa: E402
+from drop.routes.analytics import bp as analytics_bp  # noqa: E402
 from drop.routes.billing import bp as billing_bp  # noqa: E402
 from drop.routes.dialogue import bp as dialogue_bp  # noqa: E402
 from drop.routes.individuality_c import bp as individuality_c_bp  # noqa: E402
@@ -33,6 +34,7 @@ app.register_blueprint(relationships_bp)
 app.register_blueprint(self_discovery_bp)
 app.register_blueprint(scenes_bp)
 app.register_blueprint(billing_bp)
+app.register_blueprint(analytics_bp)
 
 
 @app.get("/")
