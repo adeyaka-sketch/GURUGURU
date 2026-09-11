@@ -299,7 +299,7 @@ def webhook():
     if event_type in ("customer.subscription.deleted",):
         set_access_code_status(data_object["id"], "cancelled")
     elif event_type == "customer.subscription.updated":
-        new_status = data_object.get("status")
+        new_status = data_object["status"]
         if new_status in ("canceled", "unpaid", "past_due"):
             set_access_code_status(data_object["id"], "cancelled")
         elif new_status == "active":
